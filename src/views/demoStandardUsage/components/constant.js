@@ -1,12 +1,15 @@
 const LIST = [
   {
+    prop: 'id',
+    label: 'id'
+  },
+  {
     prop: 'itemGroupName',
     label: '检验项目组'
   },
   {
     prop: 'itemName',
-    label: '检验项目',
-    width: 300
+    label: '检验项目'
   },
   {
     prop: 'verificationBasis',

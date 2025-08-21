@@ -1,7 +1,10 @@
 <template>
   <div class="universheet-demo">
     <h2>Universheet 示例</h2>
+    <!-- 添加获取数据按钮 -->
+    <button @click="getData" class="getDataBtn">获取当前表格数据</button>
     <Universheet
+      ref="universheetRef"
       :columns="columns"
       :data="tableData"
       :config="config"
@@ -11,6 +14,11 @@
       @insertRow="handleInsertRow"
       @deleteRow="handleDeleteRow"
     />
+    <!-- 显示获取的数据 -->
+    <div v-if="displayData.length > 0" class="dataDisplay">
+      <h3>当前表格数据：</h3>
+      <pre>{{ JSON.stringify(displayData, null, 2) }}</pre>
+    </div>
   </div>
 </template>
 
@@ -18,7 +26,7 @@
 import Universheet from '@/components/universheet.vue';
 
 export default {
-  name: 'DemoQuickStart',
+  name: 'demoQuickStart',
   components: {
     Universheet
   },
@@ -145,10 +153,28 @@ export default {
         sheetName: 'Sheet1',
         allowInsertRow: true,
         allowDeleteRow: true
-      }
+      },
+      // 添加用于显示的数据属性
+      displayData: []
     };
   },
   methods: {
+    // 添加获取数据方法
+    getData() {
+      // 通过ref获取表格组件实例
+      const universheet = this.$refs.universheetRef;
+      if (universheet) {
+        // 结束编辑
+        universheet.exposed.methods.endEditing();
+        // 调用表格组件的方法获取当前数据
+        const currentData = universheet.exposed.methods.getCurrentTableData();
+        // 更新显示数据
+        this.displayData = currentData || [];
+        console.log('获取到的表格数据:', currentData);
+      } else {
+        console.error('未找到表格组件实例');
+      }
+    },
     handleDataChange(params) {
       console.log('数据变更详情:', params);
       // 更新父组件数据
@@ -178,3 +204,33 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+/* 添加按钮和数据显示区域的样式 */
+.getDataBtn {
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.getDataBtn:hover {
+  background-color: #66b1ff;
+}
+
+.dataDisplay {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: auto;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+</style>

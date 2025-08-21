@@ -220,7 +220,7 @@ handleDataInitialized(exposed) {
 | oldValue | 旧值 |
 | newVal | 新值 |
 | currentTableData | 完整表格数据 |
-| exposed | 暴露对象 `{ attributes: { univerInstance, univerAPIInstance }, methods: { getCurrentTableData, refreshTable } }` |
+| exposed | 暴露对象 `{ attributes: { univerInstance, univerAPIInstance }, methods: { getCurrentTableData, refreshTable, endEditing } }` |
 
 #### insertRow 回调参数
 
@@ -249,7 +249,8 @@ handleDataInitialized(exposed) {
 | attributes.univerInstance | Univer 原始实例 |
 | attributes.univerAPIInstance | Univer API 封装实例 |
 | methods.getCurrentTableData | 获取当前完整表格数据 |
-| methods.refreshTable | 刷新表格数据与配置 |
+| methods.refreshTable | 刷新表格数据与配置，可选参数needUpdateColumns=false控制是否需要转换并设置表头 |
+| methods.endEditing | 结束所有单元格的编辑状态 |
 
 ## 注意事项
 
