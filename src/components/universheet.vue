@@ -1,8 +1,5 @@
 <template>
-  <div
-    ref="sheetContainer"
-    :style="mergedConfig.styleOptions"
-  />
+  <div :style="mergedConfig.styleOptions" ref="sheetContainer"></div>
 </template>
 
 <script>
@@ -29,6 +26,28 @@ export default {
       type: Object,
       default: () => ({})
     }
+  },
+  computed: {
+    mergedConfig() {
+      return {
+        ...this.defaultConfig,
+        ...this.config
+      };
+    },
+    exposed() {
+      return {
+        attributes: {
+          univerInstance: this.univerInstance,
+          univerAPIInstance: this.univerAPIInstance,
+          defaultConfig: this.defaultConfig
+        },
+        methods: {
+          getCurrentTableData: this.getCurrentTableData,
+          refreshTable: this.refreshTableExposed,
+          endEditing: this.endEditing
+        }
+      }
+    },
   },
   data() {
     return {
@@ -104,62 +123,6 @@ export default {
       }
     }
   },
-  computed: {
-    mergedConfig() {
-      return {
-        ...this.defaultConfig,
-        ...this.config
-      };
-    },
-    exposed() {
-      return {
-        attributes: {
-          univerInstance: this.univerInstance,
-          univerAPIInstance: this.univerAPIInstance,
-          defaultConfig: this.defaultConfig
-        },
-        methods: {
-          getCurrentTableData: this.getCurrentTableData,
-          refreshTable: this.refreshTableExposed
-        }
-      }
-    },
-  },
-  watch: {
-    // 深度监听columns prop变化
-    columns: {
-      handler(newColumns, oldColumns) {
-        if (!this.mergedConfig.autoRefreshOnPropChange) return
-        if (this.univerAPIInstance && this.isTableInitialized) {
-          this.currentTableColumns = this.column;
-        }
-        this.refreshTable()
-      },
-      deep: true,
-      immediate: false
-    },
-    // 深度监听data prop变化
-    data: {
-      handler(newData, oldData) {
-        if (!this.mergedConfig.autoRefreshOnPropChange) return
-        if (this.univerAPIInstance && this.isTableInitialized) {
-          this.currentTableData = this.data;
-        }
-        this.refreshTable()
-      },
-      deep: true,
-      immediate: false
-    },
-    // 深度监听config prop变化
-    mergedConfig: {
-      handler(newVal, oldVal) {
-        if (!this.mergedConfig.autoRefreshOnPropChange) return
-        this.refreshTable()
-      },
-      deep: true,
-      immediate: false
-    }
-  },
   mounted() {
     this.initSheet();
   },
@@ -203,12 +166,9 @@ export default {
             case univerAPIInstance.Enum.LifecycleStages.Rendered:
               const workbook = univerAPIInstance.getActiveWorkbook()
               const worksheet = workbook.getActiveSheet()
-              const { headerRows } = this.generateHeaderRows(this.columns);
               this.currentTableColumns = this.columns;
               this.currentTableData = this.data;
               worksheet.setName(this.mergedConfig.sheetName)
-              worksheet.setColumnCount(headerRows[0].length);
-              worksheet.setRowCount(headerRows.length + this.data.length);
               this.pendingUpdates++
               // 转换并设置表头
               this.setColumns(worksheet)
@@ -462,13 +422,15 @@ export default {
       this.univerAPIInstance = univerAPIInstance
     },
 
-    refreshTable() {
+    refreshTable(needUpdateColumns = false) {
       if (this.univerAPIInstance && this.isTableInitialized) {
         const workbook = this.univerAPIInstance.getActiveWorkbook();
         const worksheet = workbook.getActiveSheet();
         this.pendingUpdates++
-        // 转换并设置表头
-        this.setColumns(worksheet)
+        // 根据参数决定是否转换并设置表头
+        if (needUpdateColumns) {
+          this.setColumns(worksheet)
+        }
         // 转换并设置数据
         this.setData(worksheet)
         // 转换并设置权限
@@ -478,12 +440,14 @@ export default {
       }
     },
 
-    refreshTableExposed() {
+    refreshTableExposed(needUpdateColumns = false) {
       if (this.univerAPIInstance && this.isTableInitialized) {
-        this.currentTableColumns = this.column;
+        if (needUpdateColumns) {
+          this.currentTableColumns = this.column;
+        }
         this.currentTableData = this.data;
       }
-      this.refreshTable()
+      this.refreshTable(needUpdateColumns)
     },
 
     // 生成表头行数据和合并信息
@@ -558,6 +522,7 @@ export default {
     setColumns(worksheet) {
       // 处理嵌套表头，获取表头行数据和合并信息
       const { headerRows, mergeInfos } = this.generateHeaderRows(this.columns);
+      worksheet.setColumnCount(headerRows[0].length);
       // 设置表头数据
       headerRows.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
@@ -616,6 +581,7 @@ export default {
     // 设置表格数据
     setData(worksheet) {
       const headerRowCount = this.getHeaderRowCount(this.columns)
+      worksheet.setRowCount(headerRowCount + this.data.length);
       this.data.forEach((row, rowIndex) => {
         const flattenData = this.flattenRowData(row, this.columns)
         flattenData.forEach((value, colIndex) => {
@@ -724,7 +690,7 @@ export default {
         if (col.children && col.children.length > 0) {
           this.flattenRowData(row, col.children, result)
         } else {
-          result.push(row[col.prop] || '')
+          result.push(row[col.prop] ?? '')
         }
       })
       return result
@@ -758,9 +724,101 @@ export default {
     },
 
     getCurrentTableData() {
-      return this.currentTableData;
-    }
+      // 确保实例已初始化
+      if (!this.univerAPIInstance || !this.isTableInitialized) {
+        return this.currentTableData;
+      }
 
+      try {
+        // 获取当前工作表
+        const workbook = this.univerAPIInstance.getActiveWorkbook();
+        const worksheet = workbook.getActiveSheet();
+
+        // 计算表头行数
+        const headerRowCount = this.getHeaderRowCount(this.currentTableColumns || this.columns);
+
+        // 获取数据区域范围
+        const lastRow = worksheet.getLastRow();
+        const lastColumn = worksheet.getLastColumn();
+
+        // 如果没有数据行，返回空数组
+        if (lastRow < headerRowCount) {
+          this.currentTableData = [];
+          return [];
+        }
+
+        // 获取所有数据单元格的值
+        const dataRange = worksheet.getRange(headerRowCount, 0, lastRow - headerRowCount + 1, lastColumn + 1);
+        const dataValues = dataRange.getValues();
+
+        // 获取扁平化后的列配置
+        const flatColumns = this.flattenColumns(this.currentTableColumns || this.columns);
+
+        // 转换为表格数据格式
+        const newTableData = dataValues.map((row, rowIndex) => {
+          const rowData = {};
+          row.forEach((cellValue, colIndex) => {
+            const column = flatColumns[colIndex];
+            if (column) {
+              const fieldName = column.prop || column.dataIndex;
+              if (fieldName) {
+                rowData[fieldName] = cellValue;
+              }
+            }
+          });
+          return rowData;
+        });
+
+        // 更新当前表格数据
+        this.currentTableData = newTableData;
+        return this.currentTableData;
+      } catch (error) {
+        console.error('获取当前表格数据失败:', error);
+        // 出错时返回现有数据
+        return this.currentTableData;
+      }
+    },
+    endEditing() {
+      if (this.univerAPIInstance && this.isTableInitialized) {
+        const workbook = this.univerAPIInstance.getActiveWorkbook()
+        workbook.endEditingAsync(true)
+      }
+    },
+  },
+  watch: {
+    // 深度监听columns prop变化
+    columns: {
+      handler(newColumns, oldColumns) {
+        if (!this.mergedConfig.autoRefreshOnPropChange) return
+        if (this.univerAPIInstance && this.isTableInitialized) {
+          this.currentTableColumns = this.column;
+        }
+        this.refreshTable()
+      },
+      deep: true,
+      immediate: false
+    },
+    // 深度监听data prop变化
+    data: {
+      handler(newData, oldData) {
+        if (!this.mergedConfig.autoRefreshOnPropChange) return
+        if (this.univerAPIInstance && this.isTableInitialized) {
+          this.currentTableData = this.data;
+        }
+        this.refreshTable()
+      },
+      deep: true,
+      immediate: false
+    },
+    // 深度监听config prop变化
+    mergedConfig: {
+      handler(newVal, oldVal) {
+        if (!this.mergedConfig.autoRefreshOnPropChange) return
+        this.refreshTable()
+      },
+      deep: true,
+      immediate: false
+    }
   }
 };
 </script>

@@ -1,150 +1,115 @@
 <template>
   <div class="universheet-demo">
     <h2>Universheet 示例</h2>
-    <Universheet
-      :columns="columns"
-      :data="tableData"
-      @updateData="handleDataChange"
+    <!-- 添加获取数据按钮 -->
+    <button @click="fetchAndDisplayRecordList" class="getDataBtn">获取当前表格的recordList数据</button>
+    <!-- 新增添加记录按钮 -->
+    <button @click="addNewRecordItem" class="addDataBtn">添加新记录</button>
+    <DemoStandardUsageTable
+      ref="demoStandardUsageTableRef"
+      :record-all-list="recordAllList"
+      title="记录所有样本值"
     />
+    <!-- 显示获取的recordList数据 -->
+    <div v-if="displayedRecordList.length > 0" class="dataDisplay">
+      <h3>当前表格的recordList数据：</h3>
+      <pre>{{ JSON.stringify(displayedRecordList, null, 2) }}</pre>
+    </div>
   </div>
 </template>
 
 <script>
-import Universheet from '@/components/universheet.vue';
-import { fetchInspectionData } from './api.js';
-import { LIST as columnList } from './constant.js'
+import { getRecordAllList, addRecordItem } from './api.js';
+import DemoStandardUsageTable from './components/demoStandardUsageTable.vue';
 
 export default {
-  name: 'DemoStandardUsage',
+  name: 'demoAdvancedUsage',
   components: {
-    Universheet
+    DemoStandardUsageTable
   },
   data() {
     return {
-      columns: [],
-      tableData: [],
-      apiData: []
+      recordAllList: [],
+      // 添加用于显示的recordList数据属性
+      displayedRecordList: []
     };
   },
   async mounted() {
     try {
-      const apiData = await fetchInspectionData();
-      this.generateColumnsAndData(apiData);
-      this.apiData = apiData;
+      const recordAllList = await getRecordAllList();
+      this.recordAllList = recordAllList;
     } catch (error) {
       console.error('获取数据失败:', error);
     }
   },
   methods: {
-    generateColumnsAndData(apiData) {
-      if (!apiData || !Array.isArray(apiData)) {
-        console.error('数据格式不正确');
-        return;
-      }
-
-      // 1. 根据constant.js动态生成基础列
-      const baseColumns = columnList.map(item => ({
-        prop: item.prop,
-        label: item.label,
-        width: item.width
-      }));
-
-      // 2. 计算最大样本数量
-      const maxSamples = Math.max(...apiData.map(item => 
-        item.itemValues ? item.itemValues.length : 0
-      ));
-
-      // 3. 生成样本嵌套列
-      const sampleColumns = [];
-      for (let i = 0; i < maxSamples; i++) {
-        sampleColumns.push({
-          prop: `sample${i + 1}`,
-          label: `样本${i + 1}`,
-          children: [
-            {
-              prop: `sample${i + 1}_inspectValue`,
-              label: '样本检验值'
-            },
-            {
-              prop: `sample${i + 1}_checkConclusion`,
-              label: '样本编码'
-            },
-            {
-              prop: `sample${i + 1}_sampleIdentification`,
-              label: '样本标识'
-            }
-          ]
-        });
-      }
-
-      // 4. 合并所有列
-      this.columns = [...baseColumns, ...sampleColumns];
-
-      // 5. 生成表格数据
-      this.tableData = apiData.map(item => {
-        const rowData = {};
-        
-        rowData.id = item.id
-
-        // 基础数据
-        columnList.forEach(col => {
-          rowData[col.prop] = item[col.prop] || '';
-        });
-
-        // 样本数据
-        if (item.itemValues && Array.isArray(item.itemValues)) {
-          item.itemValues.forEach((sample, index) => {
-            rowData[`sample${index + 1}_inspectValue`] = sample.inspectValue || '';
-            rowData[`sample${index + 1}_checkConclusion`] = sample.checkConclusion || '';
-            rowData[`sample${index + 1}_sampleIdentification`] = sample.sampleIdentification || '';
-          });
-        }
-
-        return rowData;
-      });
-
-      console.log('生成的列配置:', this.columns);
-      console.log('生成的表格数据:', this.tableData);
+    // 添加按钮点击事件处理方法
+    fetchAndDisplayRecordList() {
+      // 调用已有的getCurrentRecordList方法获取数据
+      const currentRecordList = this.$refs.demoStandardUsageTableRef.getCurrentRecordList();
+      // 更新显示数据
+      this.displayedRecordList = currentRecordList;
     },
-
-    handleDataChange(params) {
-      console.log('数据变更详情:', params);
-      
-      const { changedRow, changedRowIndex, changedColumn, newVal } = params;
-      
-      // 1. 局部更新 tableData
-      if (this.tableData[changedRowIndex]) {
-        this.$set(this.tableData[changedRowIndex], changedColumn, newVal);
+    
+    // 新增方法：添加新记录
+    async addNewRecordItem() {
+      try {
+        // 调用addRecordItem获取新增的项
+        const newItem = await addRecordItem();
+        console.log('新增记录', newItem);
+        // 通过ref调用子组件的addRecordItem方法添加新项
+        this.$refs.demoStandardUsageTableRef.addRecordItem(newItem);
+      } catch (error) {
+        console.error('添加新记录失败:', error);
       }
-
-      // 2. 同步更新 apiData
-      const targetId = this.tableData[changedRowIndex]?.id;
-      if (targetId) {
-        const apiIndex = this.apiData.findIndex(item => item.id === targetId);
-        if (apiIndex !== -1) {
-          // 找到对应的api数据项
-          const apiItem = this.apiData[apiIndex];
-          
-          // 判断是哪个样本字段被修改
-          const sampleMatch = changedColumn.match(/^sample(\d+)_(.+)$/);
-          if (sampleMatch) {
-            const sampleIndex = parseInt(sampleMatch[1]) - 1;
-            const fieldName = sampleMatch[2];
-            
-            if (apiItem.itemValues && apiItem.itemValues[sampleIndex]) {
-              // 更新对应的样本字段
-              this.$set(apiItem.itemValues[sampleIndex], fieldName, newVal);
-            }
-          } else {
-            // 基础字段更新
-            this.$set(apiItem, changedColumn, newVal);
-          }
-        }
-      }
-
-      console.log('更新后的apiData:', this.apiData);
-      console.log('更新后的tableData:', this.tableData);
     }
   }
 };
 </script>
+
+<style scoped>
+/* 添加按钮和数据显示区域的样式 */
+.getDataBtn {
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.getDataBtn:hover {
+  background-color: #66b1ff;
+}
+
+/* 新增添加记录按钮样式 */
+.addDataBtn {
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background-color: #67c23a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.addDataBtn:hover {
+  background-color: #85ce61;
+}
+
+.dataDisplay {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 400px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+</style>
