@@ -326,7 +326,7 @@ const recordAllList = [
 ]
 
 const recordItem = {
-  "id": 15590,
+  "id": null,
   "inspectMaterialId": 477,
   "inspectMaterialNumId": 474,
   "itemId": 1,
@@ -386,7 +386,7 @@ const recordItem = {
   "itemValues": [//有三个，样本检测值，样本码，样本标识
     {
       "id": 47,
-      "numItemId": 15590,
+      "numItemId": null,
       "productCode": "样本码1",
       "inspectValue": "1",
       "checkConclusion": "1",
@@ -398,7 +398,7 @@ const recordItem = {
     },
     {
       "id": 48,
-      "numItemId": 15590,
+      "numItemId": null,
       "productCode": "样本码2",
       "inspectValue": "2",
       "checkConclusion": "0",
@@ -412,12 +412,25 @@ const recordItem = {
   "itemDefects": null
 }
 
+function generateRecordItem() {
+  const newRecordItem = JSON.parse(JSON.stringify(recordItem))
+  const id = Math.floor(Math.random() * 10000) + 1;
+  newRecordItem.id = id;
+  newRecordItem.itemValues.forEach(item => {
+    item.numItemId = id;
+  })
+  return newRecordItem;
+}
+
 export async function getRecordAllList() {
-  console.log('获取所有记录', recordAllList);
-  return recordAllList;
+  const newRecordItem = generateRecordItem();
+  const newRecordAllList = [...recordAllList, newRecordItem]
+  console.log('获取所有记录', newRecordAllList);
+  return newRecordAllList;
 }
 
 export async function addRecordItem() {
-  console.log('新增记录', recordItem);
-  return recordItem;
+  const newRecordItem = generateRecordItem();
+  console.log('新增记录', newRecordItem);
+  return newRecordItem;
 }

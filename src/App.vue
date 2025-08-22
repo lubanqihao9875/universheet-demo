@@ -18,6 +18,9 @@
 </template>
 
 <style lang="scss">
+body {
+  margin: 0;
+}
 .el-container {
   height: 100vh;
 }

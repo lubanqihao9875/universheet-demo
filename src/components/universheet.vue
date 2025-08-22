@@ -1,5 +1,13 @@
 <template>
-  <div :style="mergedConfig.styleOptions" ref="sheetContainer"></div>
+  <div class="universheet-wrapper">
+    <div ref="sheetContainer" :style="mergedConfig.styleOptions"></div>
+    <div v-if="pendingUpdates !== 0 || !isTableInitialized" class="custom-loading-mask">
+      <div class="loading-content">
+        <div class="loading-spinner" :style="{ 'border-top-color': mergedConfig.loadingMaskColor }"></div>
+        <div class="loading-text">{{ mergedConfig.loadingMessage }}</div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -67,6 +75,8 @@ export default {
         allowInsertRow: true,
         allowDeleteRow: true,
         autoRefreshOnPropChange: false,
+        loadingMaskColor: '#3498db',
+        loadingMessage: '数据加载中...',
         styleOptions: {
           width: '100%',
           height: '500px'
@@ -314,6 +324,7 @@ export default {
       this.disposableManager.add('beforeCommandExecuteDisposable', univerAPIInstance.addEvent(
         univerAPIInstance.Event.BeforeCommandExecute,
         (event) => {
+          if (this.pendingUpdates) return;
           const { params, id, type, options } = event;
           if (id === 'sheet.command.insert-row') {
             const { startRow, endRow } = params.range
@@ -422,11 +433,25 @@ export default {
       this.univerAPIInstance = univerAPIInstance
     },
 
-    refreshTable(needUpdateColumns = false) {
+    async refreshTable(needUpdateColumns = false) {
       if (this.univerAPIInstance && this.isTableInitialized) {
+        this.pendingUpdates++
+        if (needUpdateColumns) {
+          await this.endEditing();
+          let workbook = this.univerAPIInstance.getActiveWorkbook();
+          let worksheet = workbook.getActiveSheet();
+          const sheetName = worksheet.getSheetName();
+          const unitId = workbook.getId();
+          if (unitId) {
+            this.univerAPIInstance.disposeUnit(unitId)
+          }
+          this.univerAPIInstance.createWorkbook({})
+          workbook = this.univerAPIInstance.getActiveWorkbook();
+          worksheet = workbook.getActiveSheet();
+          worksheet.setName(sheetName);
+        }
         const workbook = this.univerAPIInstance.getActiveWorkbook();
         const worksheet = workbook.getActiveSheet();
-        this.pendingUpdates++
         // 根据参数决定是否转换并设置表头
         if (needUpdateColumns) {
           this.setColumns(worksheet)
@@ -781,7 +806,7 @@ export default {
     endEditing() {
       if (this.univerAPIInstance && this.isTableInitialized) {
         const workbook = this.univerAPIInstance.getActiveWorkbook()
-        workbook.endEditingAsync(true)
+        return workbook.endEditingAsync(true)
       }
     },
   },
@@ -793,7 +818,7 @@ export default {
         if (this.univerAPIInstance && this.isTableInitialized) {
           this.currentTableColumns = this.column;
         }
-        this.refreshTable()
+        this.refreshTable(true)
       },
       deep: true,
       immediate: false
@@ -822,3 +847,47 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.universheet-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.custom-loading-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+.loading-text {
+  color: #333;
+  font-size: 14px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>

@@ -1,19 +1,21 @@
 <template>
   <div class="universheet-demo">
     <h2>Universheet 示例</h2>
-    <!-- 添加获取数据按钮 -->
-    <button @click="fetchAndDisplayRecordList" class="getDataBtn">获取当前表格的recordList数据</button>
+    <!-- 新增获取变更数据按钮 -->
+    <button @click="getRecordChanges" class="getDataBtn">获取变更数据</button>
     <!-- 新增添加记录按钮 -->
     <button @click="addNewRecordItem" class="addDataBtn">添加新记录</button>
+    <!-- 新增刷新表格按钮 -->
+    <button @click="refreshTableData" class="refreshBtn">刷新表格</button>
     <DemoStandardUsageTable
       ref="demoStandardUsageTableRef"
       :record-all-list="recordAllList"
       title="记录所有样本值"
     />
     <!-- 显示获取的recordList数据 -->
-    <div v-if="displayedRecordList.length > 0" class="dataDisplay">
-      <h3>当前表格的recordList数据：</h3>
-      <pre>{{ JSON.stringify(displayedRecordList, null, 2) }}</pre>
+    <div v-if="Object.keys(recordChanges).length > 0" class="dataDisplay">  
+      <h3>变更数据：</h3>
+      <pre>{{ JSON.stringify(recordChanges, null, 2) }}</pre>
     </div>
   </div>
 </template>
@@ -30,8 +32,7 @@ export default {
   data() {
     return {
       recordAllList: [],
-      // 添加用于显示的recordList数据属性
-      displayedRecordList: []
+      recordChanges: {}
     };
   },
   async mounted() {
@@ -43,14 +44,13 @@ export default {
     }
   },
   methods: {
-    // 添加按钮点击事件处理方法
-    fetchAndDisplayRecordList() {
-      // 调用已有的getCurrentRecordList方法获取数据
-      const currentRecordList = this.$refs.demoStandardUsageTableRef.getCurrentRecordList();
+    getRecordChanges() {
+      // 调用getRecordChanges方法获取变更数据
+      const changes = this.$refs.demoStandardUsageTableRef.getRecordChanges();
       // 更新显示数据
-      this.displayedRecordList = currentRecordList;
+      this.recordChanges = changes;
     },
-    
+
     // 新增方法：添加新记录
     async addNewRecordItem() {
       try {
@@ -61,6 +61,24 @@ export default {
         this.$refs.demoStandardUsageTableRef.addRecordItem(newItem);
       } catch (error) {
         console.error('添加新记录失败:', error);
+      }
+    },
+
+    // 新增：刷新表格数据方法
+    async refreshTableData() {
+      try {
+        // 显示加载状态（可选）
+        console.log('正在刷新表格数据...');
+
+        this.recordChanges = {};
+
+        // 重新获取数据并更新
+        const recordAllList = await getRecordAllList();
+        this.recordAllList = recordAllList;
+
+        console.log('表格数据刷新成功');
+      } catch (error) {
+        console.error('刷新表格数据失败:', error);
       }
     }
   }
@@ -105,11 +123,28 @@ export default {
   background-color: #f5f5f5;
   border-radius: 4px;
   overflow: auto;
-  max-height: 400px;
 }
 
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.getDataBtn, .addDataBtn, .refreshBtn {
+  margin-right: 10px;
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.refreshBtn {
+  background-color: #e6a23c;
+  color: white;
+}
+
+.refreshBtn:hover {
+  background-color: #ebb563;
 }
 </style>
