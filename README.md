@@ -114,6 +114,8 @@ config: {
   allowInsertRow: true,             // 是否允许插入行
   allowDeleteRow: true,             // 是否允许删除行
   autoRefreshOnPropChange: false,   // 属性变化时是否自动刷新
+  loadingMaskColor: '#3498db',      // 加载遮罩中旋转动画的颜色
+  loadingMessage: '数据加载中...',  // 加载遮罩中显示的文本
   styleOptions: {                   // 容器样式
     width: '100%',
     height: '500px'
@@ -186,6 +188,8 @@ handleDataInitialized(exposed) {
 | allowInsertRow | 是否允许插入行 | Boolean | true |
 | allowDeleteRow | 是否允许删除行 | Boolean | true |
 | autoRefreshOnPropChange | 属性变化时是否自动刷新 | Boolean | false |
+| loadingMaskColor | 加载遮罩中旋转动画的颜色 | String | '#3498db' |
+| loadingMessage | 加载遮罩中显示的文本 | String | '数据加载中...' |
 | styleOptions | 容器样式设置 | Object | { width: '100%', height: '500px' } |
 | messages.insertRowError | 表头区域插入行错误提示 | String | '表头区域不可插入行' |
 | messages.deleteRowError | 删除表头行错误提示 | String | '表头行不可删除' |
