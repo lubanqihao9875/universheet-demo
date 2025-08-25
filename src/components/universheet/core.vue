@@ -17,7 +17,7 @@ import { createUniver, LocaleType, mergeLocales } from '@univerjs/presets'
 import '@univerjs/preset-sheets-core/lib/index.css'
 
 export default {
-  name: 'Universheet',
+  name: 'UniversheetCore',
   props: {
     // 列配置
     columns: {
@@ -42,20 +42,6 @@ export default {
         ...this.config
       };
     },
-    exposed() {
-      return {
-        attributes: {
-          univerInstance: this.univerInstance,
-          univerAPIInstance: this.univerAPIInstance,
-          defaultConfig: this.defaultConfig
-        },
-        methods: {
-          getCurrentTableData: this.getCurrentTableData,
-          refreshTable: this.refreshTableExposed,
-          endEditing: this.endEditing
-        }
-      }
-    },
   },
   data() {
     return {
@@ -66,33 +52,6 @@ export default {
       headerPermissionId: null,
       currentTableColumns: null,
       currentTableData: null,
-      defaultConfig: {
-        defaultRowHeight: 20,
-        defaultColumnWidth: 80,
-        headerBackgroundColor: '#cfe2f3',
-        borderColor: '#000000',
-        sheetName: 'Sheet',
-        allowInsertRow: true,
-        allowDeleteRow: true,
-        autoRefreshOnPropChange: false,
-        loadingMaskColor: '#3498db',
-        loadingMessage: '数据加载中...',
-        styleOptions: {
-          width: '100%',
-          height: '500px'
-        },
-        messages: {
-          insertRowError: '表头区域不可插入行',
-          deleteRowError: '表头行不可删除',
-          autoFillFromHeaderError: '不可从表头行开始自动填充',
-          autoFillToHeaderError: '不可填充至表头行',
-          mergeCellError: '不支持合并单元格',
-          unmergeCellError: '不支持取消单元格合并',
-          moveHeaderError: '表头行不可移动',
-          moveToHeaderError: '不可移动内容至表头区域',
-          copyHeaderError: '表头行不可复制'
-        }
-      },
       // 字符串标识的Disposable管理器
       disposableManager: {
         disposables: {}, // 使用对象存储，键为字符串标识，值为Disposable实例
@@ -165,6 +124,9 @@ export default {
         ],
       })
 
+      this.univerInstance = univerInstance
+      this.univerAPIInstance = univerAPIInstance
+
       // 获取工作表实例
       univerAPIInstance.createWorkbook({})
 
@@ -174,20 +136,18 @@ export default {
         async ({ stage }) => {
           switch (stage) {
             case univerAPIInstance.Enum.LifecycleStages.Rendered:
-              const workbook = univerAPIInstance.getActiveWorkbook()
+            const workbook = univerAPIInstance.getActiveWorkbook()
               const worksheet = workbook.getActiveSheet()
               this.currentTableColumns = this.columns;
               this.currentTableData = this.data;
               worksheet.setName(this.mergedConfig.sheetName)
               this.pendingUpdates++
-              // 转换并设置表头
               this.setColumns(worksheet)
-              // 转换并设置数据
               this.setData(worksheet)
               await this.setPermission(workbook, worksheet)
               this.isTableInitialized = true
               this.pendingUpdates--
-              this.$emit('tableInitialized', this.exposed)
+              this.$emit('tableInitialized')
               break;
           }
         },
@@ -234,8 +194,7 @@ export default {
               changedColumnIndex: startColumn,
               oldValue: oldValue,
               newVal: newVal,
-              currentTableData: [...this.currentTableData],
-              exposed: this.exposed
+              currentTableData: [...this.currentTableData]
             });
           }
         }
@@ -280,8 +239,7 @@ export default {
               insertRows: insertRows,
               insertRowStartIndex: insertRowStartIndex,
               insertRowEndIndex: insertRowEndIndex,
-              currentTableData: [...this.currentTableData],
-              exposed: this.exposed
+              currentTableData: [...this.currentTableData]
             });
           }
           if (payload.id === univerAPIInstance.Enum.SheetSkeletonChangeType.REMOVE_ROW) {
@@ -314,8 +272,7 @@ export default {
               deleteRows: deleteRows,
               deleteRowStartIndex: deleteRowStartIndex,
               deleteRowEndIndex: deleteRowEndIndex,
-              currentTableData: [...this.currentTableData],
-              exposed: this.exposed
+              currentTableData: [...this.currentTableData]
             });
           }
         }
@@ -350,26 +307,42 @@ export default {
           }
           if (id === 'sheet.command.auto-fill') {
             const { sourceRange, targetRange } = params;
+            // 检查是否从表头开始自动填充
             if (sourceRange.startRow < this.getHeaderRowCount(this.currentTableColumns || this.columns)) {
               event.cancel = true;
-              // 判断消息是否有值，有值才报错
               if (this.mergedConfig.messages.autoFillFromHeaderError) {
                 this.$message.error(this.mergedConfig.messages.autoFillFromHeaderError)
               }
               return;
             }
+            
+            // 检查是否填充到表头
             if (targetRange.startRow < this.getHeaderRowCount(this.currentTableColumns || this.columns)) {
               event.cancel = true;
-              // 判断消息是否有值，有值才报错
               if (this.mergedConfig.messages.autoFillToHeaderError) {
                 this.$message.error(this.mergedConfig.messages.autoFillToHeaderError)
               }
               return;
             }
+            
+            // 检查区域是否包含只读单元格
+            if (this.hasReadOnlyCellInRange(sourceRange) || this.hasReadOnlyCellInRange(targetRange)) {
+              event.cancel = true;
+              if (this.mergedConfig.messages.readonlyCellAutoFillError) {
+                this.$message.error(this.mergedConfig.messages.readonlyCellAutoFillError)
+              }
+              return;
+            }
           }
           if (id === 'sheet.operation.set-activate-cell-edit') {
-            const { startRow, endRow } = params.primary
+            const { startRow, endRow, startColumn, endColumn } = params.primary
+            // 检查是否在表头区域
             if (endRow < this.getHeaderRowCount(this.currentTableColumns || this.columns)) {
+              event.cancel = true;
+              return;
+            }
+             // 检查是否为只读单元格
+            if (this.isCellReadonly(startRow, startColumn)) {
               event.cancel = true;
               return;
             }
@@ -392,19 +365,29 @@ export default {
           }
           if (id === 'sheet.command.move-range') {
             const { fromRange, toRange } = params;
+            // 检查是否移动表头行
             if (fromRange.startRow < this.getHeaderRowCount(this.currentTableColumns || this.columns)) {
               event.cancel = true;
-              // 判断消息是否有值，有值才报错
               if (this.mergedConfig.messages.moveHeaderError) {
                 this.$message.error(this.mergedConfig.messages.moveHeaderError)
               }
               return;
             }
+            
+            // 检查是否移动到表头区域
             if (toRange.startRow < this.getHeaderRowCount(this.currentTableColumns || this.columns)) {
               event.cancel = true;
-              // 判断消息是否有值，有值才报错
               if (this.mergedConfig.messages.moveToHeaderError) {
                 this.$message.error(this.mergedConfig.messages.moveToHeaderError)
+              }
+              return;
+            }
+            
+            // 检查区域是否包含只读单元格
+            if (this.hasReadOnlyCellInRange(fromRange) || this.hasReadOnlyCellInRange(toRange)) {
+              event.cancel = true;
+              if (this.mergedConfig.messages.readonlyCellMoveError) {
+                this.$message.error(this.mergedConfig.messages.readonlyCellMoveError)
               }
               return;
             }
@@ -428,51 +411,79 @@ export default {
       ))
 
       // 缺少指定选区禁止粘贴功能
-
-      this.univerInstance = univerInstance
-      this.univerAPIInstance = univerAPIInstance
     },
 
-    async refreshTable(needUpdateColumns = false) {
+    async refreshTable() {
       if (this.univerAPIInstance && this.isTableInitialized) {
         this.pendingUpdates++
-        if (needUpdateColumns) {
-          await this.endEditing();
-          let workbook = this.univerAPIInstance.getActiveWorkbook();
-          let worksheet = workbook.getActiveSheet();
-          const sheetName = worksheet.getSheetName();
-          const unitId = workbook.getId();
-          if (unitId) {
-            this.univerAPIInstance.disposeUnit(unitId)
-          }
-          this.univerAPIInstance.createWorkbook({})
-          workbook = this.univerAPIInstance.getActiveWorkbook();
-          worksheet = workbook.getActiveSheet();
-          worksheet.setName(sheetName);
-        }
         const workbook = this.univerAPIInstance.getActiveWorkbook();
         const worksheet = workbook.getActiveSheet();
-        // 根据参数决定是否转换并设置表头
-        if (needUpdateColumns) {
-          this.setColumns(worksheet)
-        }
         // 转换并设置数据
         this.setData(worksheet)
         // 转换并设置权限
         this.setPermission(workbook, worksheet)
         this.pendingUpdates--
-        this.$emit('tableRefreshed', this.exposed)
+        this.$emit('tableRefreshed')
       }
     },
 
-    refreshTableExposed(needUpdateColumns = false) {
-      if (this.univerAPIInstance && this.isTableInitialized) {
-        if (needUpdateColumns) {
-          this.currentTableColumns = this.column;
-        }
-        this.currentTableData = this.data;
+    updateReadonlyCellStyles(worksheet) {
+      if (!worksheet || !this.mergedConfig.readonlyCellStyle) {
+        return;
       }
-      this.refreshTable(needUpdateColumns)
+      
+      const headerRowCount = this.getHeaderRowCount(this.currentTableColumns || this.columns);
+      const columnCount = this.flattenColumns(this.currentTableColumns).length;
+      const readonlyStyle = this.mergedConfig.readonlyCellStyle;
+      
+      // 遍历数据区域的所有单元格
+      for (let row = headerRowCount; row < headerRowCount + this.currentTableData.length; row++) {
+        for (let col = 0; col < columnCount; col++) {
+          if (this.isCellReadonly(row, col)) {
+            // 应用只读样式
+            this.getCellRange(worksheet, row, col).setBackgroundColor(readonlyStyle.backgroundColor)
+            this.getCellRange(worksheet, row, col).setFontWeight(readonlyStyle.fontWeight)
+            this.getCellRange(worksheet, row, col).setBorder(this.univerAPIInstance.Enum.BorderType.ALL, this.univerAPIInstance.Enum.BorderStyleTypes.THIN, readonlyStyle.borderColor)
+          }
+        }
+      }
+    },
+
+    // 检查单元格是否为只读
+    isCellReadonly(rowIndex, colIndex) {
+      // 计算表头行数
+      const headerRowCount = this.getHeaderRowCount(this.currentTableColumns || this.columns);
+      // 如果是表头行，直接返回true
+      if (rowIndex < headerRowCount) return true;
+      
+      // 扁平化列配置
+      const flatColumns = this.flattenColumns(this.currentTableColumns);
+      // 检查列索引是否有效
+      if (colIndex >= flatColumns.length) return false;
+      
+      // 获取对应的列配置
+      const column = flatColumns[colIndex];
+      // 检查editor配置
+      return (column.editor && column.editor.type === 'readonly') ? true : false;
+    },
+
+    // 检查指定范围内是否包含只读单元格
+    hasReadOnlyCellInRange(range) {
+      const { startRow, endRow, startColumn, endColumn } = range;
+      const headerRowCount = this.getHeaderRowCount(this.currentTableColumns || this.columns);
+      
+      // 遍历范围内的所有单元格
+      for (let row = startRow; row <= endRow; row++) {
+        // 跳过表头行（已经单独处理）
+        if (row < headerRowCount) continue;
+        
+        for (let col = startColumn; col <= endColumn; col++) {
+          if (this.isCellReadonly(row, col)) {
+            return true;
+          }
+        }
+      }
+      return false;
     },
 
     // 生成表头行数据和合并信息
@@ -545,6 +556,10 @@ export default {
 
     // 设置表头
     setColumns(worksheet) {
+      if (!this.columns.length) {
+        worksheet.setColumnCount(1);
+        return;
+      }
       // 处理嵌套表头，获取表头行数据和合并信息
       const { headerRows, mergeInfos } = this.generateHeaderRows(this.columns);
       worksheet.setColumnCount(headerRows[0].length);
@@ -566,11 +581,10 @@ export default {
       const headerRange = worksheet.getRange(0, 0, headerRows.length, headerRows[0].length);
 
       // 使用配置中的样式
-      if (this.mergedConfig.headerBackgroundColor) {
-        headerRange.setBackgroundColor(this.mergedConfig.headerBackgroundColor)
-      }
-      if (this.mergedConfig.borderColor) {
-        headerRange.setBorder(this.univerAPIInstance.Enum.BorderType.ALL, this.univerAPIInstance.Enum.BorderStyleTypes.THIN, this.mergedConfig.borderColor)
+      if (this.mergedConfig.headerStyle) {
+        headerRange.setBackgroundColor(this.mergedConfig.headerStyle.backgroundColor)
+        headerRange.setFontWeight(this.mergedConfig.headerStyle.fontWeight)
+        headerRange.setBorder(this.univerAPIInstance.Enum.BorderType.ALL, this.univerAPIInstance.Enum.BorderStyleTypes.THIN, this.mergedConfig.headerStyle.borderColor)
       }
 
       // 设置数据区域的行高
@@ -605,6 +619,10 @@ export default {
 
     // 设置表格数据
     setData(worksheet) {
+      if (!this.data.length) {
+        worksheet.setRowCount(1);
+        return;
+      }
       const headerRowCount = this.getHeaderRowCount(this.columns)
       worksheet.setRowCount(headerRowCount + this.data.length);
       this.data.forEach((row, rowIndex) => {
@@ -614,6 +632,7 @@ export default {
           worksheet.getRange(rowIndex + headerRowCount, colIndex, 1, 1).setValue(value)
         })
       })
+      this.updateReadonlyCellStyles(worksheet)
     },
 
     async setPermission(workbook, worksheet) {
@@ -811,18 +830,6 @@ export default {
     },
   },
   watch: {
-    // 深度监听columns prop变化
-    columns: {
-      handler(newColumns, oldColumns) {
-        if (!this.mergedConfig.autoRefreshOnPropChange) return
-        if (this.univerAPIInstance && this.isTableInitialized) {
-          this.currentTableColumns = this.column;
-        }
-        this.refreshTable(true)
-      },
-      deep: true,
-      immediate: false
-    },
     // 深度监听data prop变化
     data: {
       handler(newData, oldData) {
