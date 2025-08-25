@@ -15,7 +15,7 @@
 </template>
 
 <script>
-import Universheet from '@/components/universheet.vue';
+import Universheet from '@/components/universheet/index.vue';
 import { LIST as columnList } from './constant.js'
 import { deepEqual, findDifferences } from '@/utils/deepCompare.js'
 
@@ -95,7 +95,8 @@ export default {
       const baseColumns = columnList.map(item => ({
         prop: item.prop,
         label: item.label,
-        width: item.width
+        width: item.width,
+        editor: item.editor
       }));
 
       // 2. 计算最大样本数量
@@ -110,8 +111,8 @@ export default {
           prop: `sample${i + 1}`,
           label: `样本${i + 1}`,
           children: [
-            { prop: `sample${i + 1}_numItemId`, label: '样本组id' },
-            { prop: `sample${i + 1}_id`, label: '样本id' },
+            { prop: `sample${i + 1}_numItemId`, label: '样本组id', editor: { type: 'readonly' } },
+            { prop: `sample${i + 1}_id`, label: '样本id', editor: { type: 'readonly' } },
             { prop: `sample${i + 1}_inspectValue`, label: '样本检验值' },
             { prop: `sample${i + 1}_checkConclusion`, label: '样本编码' },
             { prop: `sample${i + 1}_sampleIdentification`, label: '样本标识' }

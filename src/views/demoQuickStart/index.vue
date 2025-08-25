@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import Universheet from '@/components/universheet.vue';
+import Universheet from '@/components/universheet/index.vue';
 
 export default {
   name: 'demoQuickStart',
@@ -34,7 +34,7 @@ export default {
     return {
       // 列配置
       columns: [
-        { prop: 'jyz', label: '检验组' },
+        { prop: 'jyz', label: '检验组', editor: { type: 'readonly' } },
         { prop: 'jyxm', label: '检验项目' },
         { prop: 'jybz', label: '检验标准' },
         { prop: 'fxff', label: '分析方法' },
@@ -148,8 +148,16 @@ export default {
       ],
       config: {
         defaultColumnWidth: 80,
-        headerBackgroundColor: '#cfe2f3',
-        borderColor: '#000000',
+        headerStyle: {
+          backgroundColor: '#cfe2f3',
+          fontWeight: 'bold',
+          borderColor: '#ccc'
+        },
+        readonlyCellStyle: {
+          backgroundColor: '#eee',
+          fontWeight: 'bold',
+          borderColor: '#ccc'
+        },
         sheetName: 'Sheet1',
         allowInsertRow: true,
         allowDeleteRow: true

@@ -1,15 +1,25 @@
 const LIST = [
   {
     prop: 'id',
-    label: 'id'
+    label: 'id',
+    editor: {
+      type: 'readonly'
+    }
   },
   {
     prop: 'itemGroupName',
-    label: '检验项目组'
+    label: '检验项目组',
+    editor: {
+      type: 'readonly'
+    }
   },
   {
     prop: 'itemName',
-    label: '检验项目'
+    label: '检验项目',
+    width: 300,
+    editor: {
+      type: 'readonly'
+    }
   },
   {
     prop: 'verificationBasis',
