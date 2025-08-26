@@ -344,7 +344,7 @@ handleDataInitialized(exposed) {
 | attributes.univerAPIInstance | Univer API 封装实例                          |
 | attributes.defaultConfig     | 组件默认配置                                   |
 | methods.getCurrentTableData  | 获取当前完整表格数据                               |
-| methods.refreshTable         | 刷新表格数据与配置，参数 needUpdateColumns 控制是否更新列配置 |
+| methods.refreshTable | 刷新表格数据与配置，参数 recreate 控制是否销毁并重建组件 |
 | methods.endEditing           | 结束所有单元格的编辑状态，返回 Promise                  |
 
 ## 注意事项

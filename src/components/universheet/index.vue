@@ -32,23 +32,26 @@ export default {
       type: Array,
       required: true
     },
-    // config配置
+    // 配置选项
     config: {
       type: Object,
       default: () => ({})
     }
   },
   computed: {
+    // 合并默认配置和用户配置
     mergedConfig() {
       return {
         ...this.defaultConfig,
         ...this.config
       }
-    },
+    }
   },
   data() {
     return {
       isComponentAlive: true,
+      isTableInitialized: false,
+      // 手动维护exposed对象，不使用计算属性
       exposed: {
         attributes: {
           defaultConfig: this.defaultConfig
@@ -57,7 +60,7 @@ export default {
           refreshTable: this.refreshTable
         }
       },
-      isTableInitialized: false,
+      // 默认配置集中管理
       defaultConfig: {
         defaultRowHeight: 20,
         defaultColumnWidth: 80,
@@ -98,56 +101,75 @@ export default {
     }
   },
   methods: {
-    refreshTable(needUpdateColumns = false) {
-      if (needUpdateColumns) {
+    // 刷新表格数据或重建表格
+    refreshTable(recreate = false) {
+      if (recreate) {
         // 销毁并重建核心组件
-        this.isComponentAlive = false
-        // 使用$nextTick确保组件完全销毁
+        this.isComponentAlive = false;
         this.$nextTick(() => {
-          this.isComponentAlive = true
-        })
-      } else if (this.isTableInitialized) {
+          this.isComponentAlive = true;
+        });
+      } else if (this.isTableInitialized && this.$refs.universheetCoreRef) {
         // 仅刷新数据，不重建组件
-        this.$refs.universheetCoreRef.refreshTable()
+        this.$refs.universheetCoreRef.refreshTable();
       }
     },
-    handleDataChange(params) {
-      this.$emit('updateData', {...params, exposed: this.exposed})
+    
+    // 统一处理事件发射，添加exposed信息
+    emitEvent(eventName, params) {
+      const emitData = params ? { ...params, exposed: this.exposed } : this.exposed;
+      this.$emit(eventName, emitData);
     },
+    
+    // 处理数据变化事件
+    handleDataChange(params) {
+      this.emitEvent('updateData', params);
+    },
+    
+    // 处理表格初始化完成事件
     handleTableInitialized() {
-      const universheetCoreRef = this.$refs.universheetCoreRef
-      this.exposed = { 
+      const coreRef = this.$refs.universheetCoreRef;
+      // 表格初始化后更新exposed对象
+      this.exposed = {
         attributes: {
           defaultConfig: this.defaultConfig,
-          univerInstance: universheetCoreRef.univerInstance,
-          univerAPIInstance: universheetCoreRef.univerAPIInstance
+          univerInstance: coreRef.univerInstance,
+          univerAPIInstance: coreRef.univerAPIInstance
         },
         methods: {
-          getCurrentTableData: universheetCoreRef.getCurrentTableData,
-          endEditing: universheetCoreRef.endEditing,
+          getCurrentTableData: coreRef.getCurrentTableData,
+          endEditing: coreRef.endEditing,
           refreshTable: this.refreshTable
         }
-      }
-      this.isTableInitialized = true
-      this.$emit('tableInitialized', this.exposed)
+      };
+      this.isTableInitialized = true;
+      this.emitEvent('tableInitialized');
     },
-    handleTableUpdated(params) {
-      this.$emit('tableRefreshed', {...params, exposed: this.exposed})
+    
+    // 处理表格更新完成事件
+    handleTableUpdated() {
+      this.emitEvent('tableRefreshed');
     },
+    
+    // 处理插入行事件
     handleInsertRow(params) {
-      this.$emit('insertRow', {...params, exposed: this.exposed})
+      this.emitEvent('insertRow', params);
     },
+    
+    // 处理删除行事件
     handleDeleteRow(params) {
-      this.$emit('deleteRow', {...params, exposed: this.exposed})
+      this.emitEvent('deleteRow', params);
     }
   },
   watch: {
+    // 监听列配置变化，需要重建表格
     columns: {
-      handler(newVal, oldVal) {
-        this.refreshTable(true)
+      handler: function() {
+        this.refreshTable(true);
       },
       deep: true,
       immediate: false
+    }
   }
-}};
+};
 </script>
