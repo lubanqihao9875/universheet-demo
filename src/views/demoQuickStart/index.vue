@@ -1,10 +1,10 @@
 <template>
-  <div class="universheet-demo">
-    <h2>Universheet 示例</h2>
+  <div class="lubanno7-univer-sheet-demo">
+    <h2>Lubanno7UniverSheet 示例</h2>
     <!-- 添加获取数据按钮 -->
     <button @click="getData" class="getDataBtn">获取当前表格数据</button>
-    <Universheet
-      ref="universheetRef"
+    <Lubanno7UniverSheet
+      ref="lubanno7UniverSheetRef"
       :columns="columns"
       :data="tableData"
       :config="config"
@@ -23,12 +23,12 @@
 </template>
 
 <script>
-import Universheet from '@/components/universheet/index.vue';
+import Lubanno7UniverSheet from '@/components/lubanno7UniverSheet/index.vue';
 
 export default {
   name: 'demoQuickStart',
   components: {
-    Universheet
+    Lubanno7UniverSheet
   },
   data() {
     return {
@@ -170,12 +170,12 @@ export default {
     // 添加获取数据方法
     getData() {
       // 通过ref获取表格组件实例
-      const universheet = this.$refs.universheetRef;
-      if (universheet) {
+      const lubanno7UniverSheetRef = this.$refs.lubanno7UniverSheetRef;
+      if (lubanno7UniverSheetRef) {
         // 结束编辑
-        universheet.exposed.methods.endEditing();
+        lubanno7UniverSheetRef.exposed.methods.endEditing();
         // 调用表格组件的方法获取当前数据
-        const currentData = universheet.exposed.methods.getCurrentTableData();
+        const currentData = lubanno7UniverSheetRef.exposed.methods.getCurrentTableData();
         // 更新显示数据
         this.displayData = currentData || [];
         console.log('获取到的表格数据:', currentData);

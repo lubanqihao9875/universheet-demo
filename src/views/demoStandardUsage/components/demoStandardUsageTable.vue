@@ -1,11 +1,11 @@
 <template>
-  <div class="universheet-demo">
+  <div class="luban7-univer-sheet-demo">
     <div>
       {{ title }}（共:<span style="color:#1890FF">{{ tableLength }}</span>个）
     </div>
-    <Universheet 
+    <Lubanno7UniverSheet 
       v-if="isComponentActive"
-      ref="universheetRef"
+      ref="lubanno7UniverSheetRef"
       :columns="columns"
       :data="tableData"
       :config="config"
@@ -15,7 +15,7 @@
 </template>
 
 <script>
-import Universheet from '@/components/universheet/index.vue';
+import Lubanno7UniverSheet from '@/components/lubanno7UniverSheet/index.vue';
 import { LIST as columnList } from './constant.js';
 import { deepEqual } from '@/utils/deepCompare.js';
 
@@ -32,7 +32,7 @@ export default {
     }
   },
   components: {
-    Universheet
+    Lubanno7UniverSheet
   },
   data() {
     return {
@@ -84,7 +84,7 @@ export default {
       this.originalTableData = this.deepClone(this.tableData);
       this.originalRecordList = this.deepClone(this.recordList);
       // 刷新表格
-      await this.refreshUniversheet(false);
+      await this.refreshLubanno7UniverSheet(false);
     },
 
     // 处理recordAllList变化
@@ -94,7 +94,7 @@ export default {
       this.recordList = recordList;
       this.originalTableData = this.deepClone(this.tableData);
       this.originalRecordList = this.deepClone(this.recordList);
-      this.refreshUniversheet(true);
+      this.refreshLubanno7UniverSheet(true);
     },
 
     // 生成列配置和表格数据
@@ -234,10 +234,10 @@ export default {
     },
 
     // 刷新表格组件
-    async refreshUniversheet(recreate = false) {
-      const universheet = this.$refs.universheetRef;
-      if (universheet?.exposed?.methods?.refreshTable) {
-        await universheet.exposed.methods.refreshTable(recreate);
+    async refreshLubanno7UniverSheet(recreate = false) {
+      const lubanno7UniverSheet = this.$refs.lubanno7UniverSheetRef;
+      if (lubanno7UniverSheet?.exposed?.methods?.refreshTable) {
+        await lubanno7UniverSheet.exposed.methods.refreshTable(recreate);
       }
     },
 
@@ -261,20 +261,20 @@ export default {
       this.tableData.push(this.convertRecordToTableRow(newRecordItem));
       
       // 刷新表格
-      this.refreshUniversheet();
+      this.refreshLubanno7UniverSheet();
     },
 
     // 获取记录变更详情
     getRecordChanges() {
-      const universheet = this.$refs.universheetRef;
-      if (!universheet) {
+      const lubanno7UniverSheet = this.$refs.lubanno7UniverSheetRef;
+      if (!lubanno7UniverSheet) {
         console.error('未找到表格组件实例');
         return this.createEmptyChangeResult();
       }
 
       // 结束编辑并同步最新数据
-      universheet.exposed.methods.endEditing();
-      this.tableData = universheet.exposed.methods.getCurrentTableData();
+      lubanno7UniverSheet.exposed.methods.endEditing();
+      this.tableData = lubanno7UniverSheet.exposed.methods.getCurrentTableData();
       this.updateRecordFromTableData(this.tableData);
 
       // 构建变更结果

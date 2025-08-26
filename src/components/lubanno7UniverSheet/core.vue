@@ -1,5 +1,5 @@
 <template>
-  <div class="universheet-wrapper">
+  <div class="lubanno7-univer-sheet-wrapper">
     <div ref="sheetContainer" :style="config.styleOptions"></div>
     <div v-if="pendingUpdates !== 0 || !isTableInitialized" class="custom-loading-mask">
       <div class="loading-content">
@@ -58,7 +58,7 @@ class DisposableManager {
 }
 
 export default {
-  name: 'UniversheetCore',
+  name: 'Lubanno7UniverSheetCore',
   props: {
     // 列配置
     columns: {
@@ -964,7 +964,7 @@ export default {
 </script>
 
 <style scoped>
-.universheet-wrapper {
+.lubanno7-univer-sheet-wrapper {
   position: relative;
   overflow: hidden;
 }
