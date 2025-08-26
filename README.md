@@ -1,6 +1,6 @@
-# Universheet 组件开发文档
+# Lubanno7UniverSheet 组件开发文档
 
-基于 Element UI 设计风格的 Vue 表格组件，支持嵌套表头、单元格编辑、数据双向绑定、细粒度权限控制，并对外暴露完整实例与生命周期钩子。
+基于 Univer 表格与 Element UI 设计风格的 Vue 表格组件，支持嵌套表头、单元格编辑、数据双向绑定、细粒度权限控制，并对外暴露完整实例与生命周期钩子。
 
 ## 快速开始
 
@@ -8,7 +8,7 @@
 
 ```javascript
 <template>
-  <Universheet
+  <Lubanno7UniverSheet
     :columns="columns"
     :data="tableData"
     :config="config"
@@ -21,10 +21,10 @@
 </template>
 
 <script>
-import Universheet from './universheet.vue';
+import Lubanno7UniverSheet from './Lubanno7UniverSheet.vue';
 
 export default {
-  components: { Universheet },
+  components: { Lubanno7UniverSheet },
   data() {
     return {
       columns: [
@@ -243,7 +243,7 @@ handleDataInitialized(exposed) {
     .getActiveWorkbook()
     .getActiveSheet()
     .getRange(0, 0)
-    .setValue('Hello Universheet');
+    .setValue('Hello Lubanno7UniverSheet');
 }
 
 ```

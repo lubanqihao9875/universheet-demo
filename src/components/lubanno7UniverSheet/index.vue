@@ -1,7 +1,7 @@
 <template>
-  <UniversheetCore
+  <Lubanno7UniverSheetCore
     v-if="isComponentAlive"
-    ref="universheetCoreRef"
+    ref="lubanno7UniverSheetCoreRef"
     :columns="columns"
     :data="data"
     :config="mergedConfig"
@@ -14,12 +14,12 @@
 </template>
 
 <script>
-import UniversheetCore from './core.vue'
+import Lubanno7UniverSheetCore from './core.vue'
 
 export default {
-  name: 'Universheet',
+  name: 'Lubanno7UniverSheet',
   components: {
-    UniversheetCore
+    Lubanno7UniverSheetCore
   },
   props: {
     // 列配置
@@ -109,9 +109,9 @@ export default {
         this.$nextTick(() => {
           this.isComponentAlive = true;
         });
-      } else if (this.isTableInitialized && this.$refs.universheetCoreRef) {
+      } else if (this.isTableInitialized && this.$refs.lubanno7UniverSheetCoreRef) {
         // 仅刷新数据，不重建组件
-        this.$refs.universheetCoreRef.refreshTable();
+        this.$refs.lubanno7UniverSheetCoreRef.refreshTable();
       }
     },
     
@@ -128,7 +128,7 @@ export default {
     
     // 处理表格初始化完成事件
     handleTableInitialized() {
-      const coreRef = this.$refs.universheetCoreRef;
+      const coreRef = this.$refs.lubanno7UniverSheetCoreRef;
       // 表格初始化后更新exposed对象
       this.exposed = {
         attributes: {

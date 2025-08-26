@@ -1,6 +1,6 @@
 <template>
-  <div class="universheet-demo">
-    <h2>Universheet 示例</h2>
+  <div class="lubanno7-univer-sheet-demo">
+    <h2>Lubanno7UniverSheet 示例</h2>
     <!-- 新增获取变更数据按钮 -->
     <button @click="getRecordChanges" class="getDataBtn">获取变更数据</button>
     <!-- 新增添加记录按钮 -->
