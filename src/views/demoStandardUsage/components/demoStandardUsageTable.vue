@@ -301,8 +301,8 @@ export default {
         } else if (!deepEqual(currentRecord, originRecord)) {
           result.change.originRecordList.push(originRecord);
           result.change.currentRecordList.push(currentRecord);
-          originRecordMap.delete(currentRecord.id);
         }
+        originRecordMap.delete(currentRecord.id);
       });
 
       // 检查删除
