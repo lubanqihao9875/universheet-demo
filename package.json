@@ -19,7 +19,7 @@
   "scripts": {
     "dev": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "build:lib": "set BUILD_TARGET=library&& vue-cli-service build --target lib --name lubanno7-univer-sheet src/index.js"
+    "build:lib": "set BUILD_TARGET=library && vue-cli-service build --target lib --name lubanno7-univer-sheet --formats umd src/index.js"
   },
   "dependencies": {
     "@univerjs/preset-sheets-core": "0.10.3",
