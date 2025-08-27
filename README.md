@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import Lubanno7UniverSheet from './Lubanno7UniverSheet.vue';
+import Lubanno7UniverSheet from 'lubanno7-univer-sheet';
 
 export default {
   components: { Lubanno7UniverSheet },
