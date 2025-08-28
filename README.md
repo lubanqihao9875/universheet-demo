@@ -22,6 +22,7 @@
 
 <script>
 import Lubanno7UniverSheet from 'lubanno7-univer-sheet';
+import 'lubanno7-univer-sheet/lib/index.css';
 
 export default {
   components: { Lubanno7UniverSheet },

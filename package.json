@@ -2,7 +2,13 @@
   "name": "lubanno7-univer-sheet",
   "version": "0.1.0",
   "description": "基于Univer表格与Element UI设计风格的Vue表格组件，支持嵌套表头、单元格编辑、数据双向绑定",
-  "keywords": ["vue", "univer", "table", "element-ui", "component"],
+  "keywords": [
+    "vue",
+    "univer",
+    "table",
+    "element-ui",
+    "component"
+  ],
   "private": false,
   "license": "MIT",
   "repository": {
@@ -10,16 +16,16 @@
     "url": "https://github.com/lubanqihao9875/lubanno7-univer-sheet"
   },
   "homepage": "https://github.com/lubanqihao9875/lubanno7-univer-sheet#readme",
-  "main": "dist/lubanno7-univer-sheet.umd.js",
+  "main": "lib/index.umd.js",
   "files": [
-    "dist",
+    "lib",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "build:lib": "set BUILD_TARGET=library && vue-cli-service build --target lib --name lubanno7-univer-sheet --formats umd src/index.js"
+    "build:lib": "set BUILD_TARGET=library && vue-cli-service build --target lib --name index --formats umd --dest lib src/index.js"
   },
   "dependencies": {
     "@univerjs/preset-sheets-core": "0.10.3",
@@ -43,7 +49,7 @@
     "node-sass": "^4.12.0",
     "sass-loader": "^8.0.2",
     "vue": "^2.6.11",
-    "vue-router": "~3.5.0",
+    "vue-router": "^3.5.0",
     "vue-template-compiler": "^2.6.11"
   },
   "browserslist": [
