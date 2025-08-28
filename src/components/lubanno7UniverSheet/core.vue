@@ -125,6 +125,8 @@ export default {
         presets: [
           UniverSheetsCorePreset({
             container: this.$refs.sheetContainer,
+            header: Boolean(this.config.showHeader),
+            footer: Boolean(this.config.showFooter),
             sheets: {
               protectedRangeShadow: false,
             },
@@ -195,12 +197,17 @@ export default {
           this.currentTableData = this.data;
           worksheet.setName(this.config.sheetName)
           this.pendingUpdates++
-          this.setColumns(worksheet)
-          this.setData(worksheet)
-          this.setPermission(workbook, worksheet)
-          this.isTableInitialized = true
-          this.pendingUpdates--
-          this.$emit('tableInitialized')
+          try {
+            this.setColumns(worksheet)
+            this.setData(worksheet)
+            this.setPermission(workbook, worksheet)
+            this.isTableInitialized = true
+            this.$emit('tableInitialized')
+          } catch (error) {
+            console.error('初始化表格数据时出错:', error)
+          } finally {
+            this.pendingUpdates--
+          }
           break;
       }
     },
@@ -473,14 +480,19 @@ export default {
     async refreshTable() {
       if (this.univerAPIInstance && this.isTableInitialized) {
         this.pendingUpdates++
-        const workbook = this.univerAPIInstance.getActiveWorkbook();
-        const worksheet = workbook.getActiveSheet();
-        // 转换并设置数据
-        this.setData(worksheet)
-        // 转换并设置权限
-        this.setPermission(workbook, worksheet)
-        this.pendingUpdates--
-        this.$emit('tableRefreshed')
+        try {
+          const workbook = this.univerAPIInstance.getActiveWorkbook();
+          const worksheet = workbook.getActiveSheet();
+          // 转换并设置数据
+          this.setData(worksheet)
+          // 转换并设置权限
+          this.setPermission(workbook, worksheet)
+          this.$emit('tableRefreshed')
+        } catch (error) {
+          console.error('刷新表格数据时出错:', error)
+        } finally {
+          this.pendingUpdates--
+        }
       }
     },
 

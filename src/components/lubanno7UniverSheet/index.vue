@@ -70,6 +70,8 @@ export default {
         autoRefreshOnPropChange: false,
         loadingMaskColor: '#3498db',
         loadingMessage: '数据加载中...',
+        showHeader: true,
+        showFooter: true,
         styleOptions: {
           width: '100%',
           height: '500px'
