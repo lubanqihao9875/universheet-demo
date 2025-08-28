@@ -22,6 +22,7 @@
 
 <script>
 import Lubanno7UniverSheet from 'lubanno7-univer-sheet';
+import 'lubanno7-univer-sheet/lib/index.css';
 
 export default {
   components: { Lubanno7UniverSheet },
@@ -170,6 +171,8 @@ config: {
   autoRefreshOnPropChange: false,   // 属性变化时是否自动刷新
   loadingMaskColor: '#3498db',      // 加载遮罩中旋转动画的颜色
   loadingMessage: '数据加载中...',  // 加载遮罩中显示的文本
+  showHeader: true,                // 是否显示表头
+  showFooter: true,                // 是否显示表尾
   styleOptions: {                   // 容器样式
     width: '100%',
     height: '500px'
@@ -226,7 +229,7 @@ tableData: [
 ```javascript
 handleDataInitialized(exposed) {
   const { attributes, methods } = exposed;
-  const { univerInstance, univerAPIInstance } = attributes;
+  const { univerInstance, univerAPIInstance, defaultConfig } = attributes;
   const { getCurrentTableData, refreshTable, endEditing } = methods;
 
   // 示例：获取当前完整数据
@@ -270,6 +273,8 @@ handleDataInitialized(exposed) {
 | autoRefreshOnPropChange | 属性变化时是否自动刷新                                          | Boolean | false                                                                   |
 | loadingMaskColor        | 加载遮罩中旋转动画的颜色                                         | String  | '#3498db'                                                               |
 | loadingMessage          | 加载遮罩中显示的文本                                           | String  | ' 数据加载中...'                                                             |
+| showHeader              | 是否显示表头                                                | Boolean | true                                                                    |
+| showFooter              | 是否显示表尾                                                | Boolean | true                                                                    |
 | styleOptions            | 容器样式设置                                               | Object  | { width: '100%', height: '500px' }                                      |
 | headerStyle             | 表头样式设置（包含 backgroundColor、fontWeight、borderColor）    | Object  | { backgroundColor: '#cfe2f3', fontWeight: 'bold', borderColor: '#ccc' } |
 | readonlyCellStyle       | 只读单元格样式设置（包含 backgroundColor、fontWeight、borderColor） | Object  | { backgroundColor: '#eee', fontWeight: 'bold', borderColor: '#ccc' }    |
@@ -314,7 +319,7 @@ handleDataInitialized(exposed) {
 | oldValue           | 旧值                                                                                                                       |
 | newVal             | 新值                                                                                                                       |
 | currentTableData   | 完整表格数据                                                                                                                   |
-| exposed            | 暴露对象 `{ attributes: { univerInstance, univerAPIInstance }, methods: { getCurrentTableData, refreshTable, endEditing } }` |
+| exposed            | 暴露对象 `{ attributes: { univerInstance, univerAPIInstance, defaultConfig }, methods: { getCurrentTableData, refreshTable, endEditing } }` |
 
 #### insertRow 回调参数
 
