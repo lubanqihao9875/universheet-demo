@@ -1,125 +1,173 @@
 const LIST = [
   {
-    prop: 'id',
-    label: 'id',
+    prop: "id",
+    label: "id",
+    width: 100,
     editor: {
       type: 'readonly'
     }
   },
   {
+    label: '检验组',
     prop: 'itemGroupName',
-    label: '检验项目组',
+    width: 120,
     editor: {
       type: 'readonly'
     }
   },
   {
-    prop: 'itemName',
+    prop: 'itemId',
+    label: '检验项目id',
+    width: 100,
+    editor: {
+      type: 'readonly'
+    }
+  },
+  {
     label: '检验项目',
+    prop: 'itemName',
     width: 300,
     editor: {
       type: 'readonly'
     }
   },
   {
-    prop: 'verificationBasis',
-    label: '检验标准'
+    label: '检验标准',
+    prop: 'inspectStandard',
+    width: 100,
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '分析方法',
     prop: 'analyzeMethodName',
-    label: '分析方法'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
-    prop: 'actualQuality',
-    label: '实际样本数'
-  },
-  {
+    label: '判定',
     prop: 'checkResult',
-    label: '检测值'
+    width: 100,
+    editor: {
+      type: 'select',
+      options: ['合格', '不合格']
+    }
   },
   {
-    prop: 'checkResult2',
-    label: '样本检测值'
+    label: '实际样本数',
+    prop: 'actualQuality'
   },
   {
-    prop: 'singleConclusion',
-    label: '检验项目判定'
-  },
-  {
-    prop: 'verificationInstrument',
-    label: '检验仪器'
-  },
-  {
-    prop: 'verificationMethod',
-    label: '检验方法'
-  },
-  {
+    label: '检验条件',
     prop: 'inspectionCondition',
-    label: '检验条件'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '单位',
     prop: 'unit',
-    label: '单位'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '参考值',
     prop: 'referenceValue',
-    label: '参考值'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '比较符',
     prop: 'comparator',
-    label: '比较符'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '上限值',
     prop: 'upperLimitValue',
-    label: '上限值'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '下限值',
     prop: 'downLimitValue',
-    label: '下限值'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '上公差',
     prop: 'upperTolerance',
-    label: '上公差'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '下公差',
     prop: 'lowerTolerance',
-    label: '下公差'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '抽样方案',
     prop: 'samplePlanName',
-    label: '抽样方案'
+    editor: {
+      type: 'select',
+      options: ['全抽']
+    }
   },
   {
+    label: '抽样类型',
     prop: 'sampleType',
-    label: '抽样类型'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '检验水平',
     prop: 'inspectLevel',
-    label: '检验水平'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
-    prop: 'stringency',
-    label: '严格度'
+    label: '严格度',
+    prop: 'stringencyName',
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: 'AQL',
     prop: 'aqlValue',
-    label: 'AQL'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '允收数',
     prop: 'acceptValue',
-    label: '允收数'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
+    label: '拒收数',
     prop: 'refuseValue',
-    label: '拒收数'
+    editor: {
+      type: 'readonly'
+    }
   },
   {
-    prop: 'samplingQuantity',
-    label: '抽样数量'
-  },
-  {
-    prop: 'unqualifiedQuantity',
-    label: '样本不合格数'
+    label: '抽样数量',
+    prop: 'samplingQuantity'
   }
 ]
 

@@ -1,6 +1,6 @@
 {
   "name": "lubanno7-univer-sheet",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "基于Univer表格与Element UI设计风格的Vue表格组件，支持嵌套表头、单元格编辑、数据双向绑定",
   "keywords": [
     "vue",
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@univerjs/preset-sheets-core": "0.10.3",
+    "@univerjs/preset-sheets-data-validation": "0.10.3",
     "@univerjs/presets": "0.10.3",
     "element-ui": "^2.14.1",
     "react": "19.1.1",

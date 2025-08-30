@@ -10,7 +10,7 @@
       :config="config"
       @updateData="handleDataChange"
       @tableInitialized="handleTableInitialized"
-      @tableRefreshed="handleTableUpdated"
+      @tableDataRefreshed="handleTableDataRefreshed"
       @insertRow="handleInsertRow"
       @deleteRow="handleDeleteRow"
     />
@@ -38,7 +38,7 @@ export default {
         { prop: 'jyxm', label: '检验项目' },
         { prop: 'jybz', label: '检验标准' },
         { prop: 'fxff', label: '分析方法' },
-        { prop: 'pd', label: '判定' },
+        { prop: 'pd', label: '判定', editor: { type: 'select', options: ['合格', '不合格'] } },
         {
           prop: 'yb1',
           label: '样本1',
@@ -193,7 +193,7 @@ export default {
       // 这里添加数据初始化完成后的逻辑
       // univerAPIInstance.getActiveWorkbook().getActiveSheet().getRange('A1').setValue('hello world');
     },
-    handleTableUpdated() {
+    handleTableDataRefreshed() {
       console.log('数据已更新');
       // 这里添加数据更新后的逻辑
     },

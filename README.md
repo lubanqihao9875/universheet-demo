@@ -1,6 +1,6 @@
 # Lubanno7UniverSheet 组件开发文档
 
-基于 Univer 表格与 Element UI 设计风格的 Vue 表格组件，支持嵌套表头、单元格编辑、数据双向绑定、细粒度权限控制，并对外暴露完整实例与生命周期钩子。
+基于 Univer 表格与 Element UI 设计风格的 Vue 表格组件，支持嵌套表头、单元格编辑、数据双向绑定、细粒度权限控制、异步分批次加载优化，并对外暴露完整实例与生命周期钩子。
 
 ## 快速开始
 
@@ -14,9 +14,10 @@
     :config="config"
     @updateData="handleDataChange"
     @tableInitialized="handleTableInitialized"
-    @tableRefreshed="handleTableUpdated"
+    @tableDataRefreshed="handleTableDataRefreshed"
     @insertRow="handleInsertRow"
     @deleteRow="handleDeleteRow"
+    @cellClicked="handleCellClicked"
   />
 </template>
 
@@ -30,11 +31,22 @@ export default {
     return {
       columns: [
         { prop: 'name', label: '姓名', width: 120 },
-        { prop: 'age', label: '年龄', width: 80 }
+        { prop: 'age', label: '年龄', width: 80 },
+        {
+          prop: 'status',
+          label: '状态',
+          width: 100,
+          editor: {
+            type: 'select',
+            options: ['满意', '不满意'],
+            multiple: false,
+            allowInput: false
+          }
+        }
       ],
       tableData: [
-        { name: '张三', age: 25 },
-        { name: '李四', age: 30 }
+        { name: '张三', age: 25, status: '满意' },
+        { name: '李四', age: 30, status: '不满意' }
       ],
       config: {
         defaultColumnWidth: 100,
@@ -46,6 +58,9 @@ export default {
         headerStyle: {
           backgroundColor: '#f5f5f5',
           borderColor: '#e4e7ed'
+        },
+        commonStyle: {
+          fontSize: 12
         }
       }
     };
@@ -60,8 +75,8 @@ export default {
       // 通过 attributes.univerAPIInstance 可以调用底层 API
       // 通过 methods.getCurrentTableData 可以立即获取全量数据
     },
-    handleTableUpdated({ attributes, methods }) {
-      console.log('配置或数据已重新加载');
+    handleTableDataRefreshed({ attributes, methods }) {
+      console.log('表格数据已刷新');
     },
     handleInsertRow({ insertRows, insertRowStartIndex, insertRowEndIndex, currentTableData }) {
       console.log('插入了', insertRows.length, '行数据');
@@ -70,6 +85,9 @@ export default {
     handleDeleteRow({ deleteRows, deleteRowStartIndex, deleteRowEndIndex, currentTableData }) {
       console.log('删除了', deleteRows.length, '行数据');
       this.tableData = currentTableData;
+    },
+    handleCellClicked({ clickedRow, clickedRowIndex, clickedColumn, clickedColumnIndex, value }) {
+      console.log('单元格被点击:', clickedColumn, '值为:', value);
     }
   }
 };
@@ -107,7 +125,7 @@ columns: [
 
 #### 示例 2：多级嵌套表头
 
-适用于有层级归类的复杂表头，通过`children`属性实现嵌套，仅最末级叶子节点可配置只读：
+适用于有层级归类的复杂表头，通过`children`属性实现嵌套，仅最末级叶子节点可配置只读或下拉选择：
 
 ```javascript
 columns: [
@@ -121,7 +139,17 @@ columns: [
         width: 100,
         editor: { type: 'readonly' } // 叶子节点，支持只读
       },
-      { prop: 'userBase#name', label: '姓名', width: 120 } // 叶子节点，可编辑
+      { prop: 'userBase#name', label: '姓名', width: 120 }, // 叶子节点，可编辑
+      {
+        prop: 'userBase#gender',
+        label: '性别',
+        width: 80,
+        editor: {
+          type: 'select',
+          options: ['男', '女'],
+          multiple: false
+        }
+      }
     ]
   },
   { 
@@ -133,7 +161,11 @@ columns: [
         prop: 'orderInfo#status', 
         label: '订单状态', 
         width: 100,
-        editor: { type: 'readonly' } // 叶子节点，支持只读
+        editor: {
+          type: 'select',
+          options: ['待支付', '已支付', '待发货', '已发货', '已完成', '已取消'],
+          multiple: false
+        }
       },
       { 
         prop: 'orderInfo#createTime', 
@@ -154,7 +186,6 @@ columns: [
 *   **列宽设置**：在列配置中使用 `width` 属性或通过 `config.defaultColumnWidth` 设置默认列宽
 *   **行高设置**：通过 `config.defaultRowHeight` 设置默认行高
 
-\
 优先级：列配置的 `width` > `config.defaultColumnWidth`
 
 ### 4. 样式与权限配置
@@ -163,8 +194,6 @@ columns: [
 
 ```javascript
 config: {
-  defaultColumnWidth: 80,           // 默认列宽
-  defaultRowHeight: 20,             // 默认行高
   sheetName: '示例表',              // 工作表名称
   allowInsertRow: true,             // 是否允许插入行
   allowDeleteRow: true,             // 是否允许删除行
@@ -173,9 +202,15 @@ config: {
   loadingMessage: '数据加载中...',  // 加载遮罩中显示的文本
   showHeader: true,                // 是否显示表头
   showFooter: true,                // 是否显示表尾
+  batchSize: 500,                  // 每次加载的数据量，设为 Infinity 表示不限制批量加载数据量
   styleOptions: {                   // 容器样式
     width: '100%',
     height: '500px'
+  },
+  commonStyle: {                    // 通用样式设置
+    defaultRowHeight: 20,           // 默认行高
+    defaultColumnWidth: 80,        // 默认列宽
+    fontSize: 12                    // 默认字体大小
   },
   headerStyle: {                    // 表头样式
     backgroundColor: '#cfe2f3',
@@ -207,13 +242,15 @@ tableData: [
   {
     'userBase#id': 'U001',    // 对应只读列
     'userBase#name': '张三',  // 对应可编辑列
+    'userBase#gender': '男',  // 对应下拉选择列
     'orderInfo#price': 299,   // 对应可编辑列
-    'orderInfo#status': '已支付', // 对应只读列
+    'orderInfo#status': '已支付', // 对应下拉选择列
     'orderInfo#createTime': '2024-01-01 10:30' // 对应只读列
   },
   {
     'userBase#id': 'U002',
     'userBase#name': '李四',
+    'userBase#gender': '女',
     'orderInfo#price': 599,
     'orderInfo#status': '待发货',
     'orderInfo#createTime': '2024-01-02 14:15'
@@ -222,21 +259,80 @@ tableData: [
 
 ```
 
-### 6. 对外暴露的实例与 API
+### 6. 下拉选择单元格配置
+
+通过在列配置中设置`editor`属性，可以为单元格添加下拉选择功能：
+
+```javascript
+columns: [
+  {
+    prop: 'status',
+    label: '状态',
+    width: 100,
+    editor: {
+      type: 'select',         // 选择框类型
+      options: ['选项1', '选项2', '选项3'], // 可选值数组
+      multiple: false,        // 是否多选
+      allowInput: false       // 是否允许输入自定义值
+    }
+  },
+  // 函数形式的editor配置，可以根据行数据动态生成选项
+  {
+    prop: 'dynamicOptions',
+    label: '动态选项',
+    width: 120,
+    editor: (params) => {
+      const { row, rowIndex, column, columnIndex } = params;
+      // 根据行数据返回不同的配置
+      if (row.type === 'typeA') {
+        return {
+          type: 'select',
+          options: ['A1', 'A2', 'A3'],
+          multiple: false
+        };
+      } else {
+        return {
+          type: 'select',
+          options: ['B1', 'B2', 'B3'],
+          multiple: false
+        };
+      }
+    }
+  }
+]
+
+```
+
+### 7. 对外暴露的实例与 API
 
 组件通过事件参数向外暴露完整能力：
 
 ```javascript
-handleDataInitialized(exposed) {
+handleTableInitialized(exposed) {
   const { attributes, methods } = exposed;
   const { univerInstance, univerAPIInstance, defaultConfig } = attributes;
-  const { getCurrentTableData, refreshTable, endEditing } = methods;
+  const { 
+    getCurrentTableData, 
+    refreshTableData, 
+    recreateTable, 
+    refreshTableCommonConfig,
+    endEditing, 
+    setCellFontColor, 
+    getColumnName, 
+    getColumnIndex 
+  } = methods;
 
   // 示例：获取当前完整数据
   const data = getCurrentTableData();
 
   // 示例：刷新表格数据
-  refreshTable();
+  refreshTableData();
+
+  // 示例：重建表格
+  recreateTable();
+
+  // 示例：刷新表格通用配置
+  refreshTableCommonConfig();
 
   // 示例：结束编辑状态
   endEditing();
@@ -247,6 +343,15 @@ handleDataInitialized(exposed) {
     .getActiveSheet()
     .getRange(0, 0)
     .setValue('Hello Lubanno7UniverSheet');
+
+  // 示例：设置单元格字体颜色
+  setCellFontColor(0, 'userBase#name', 'red');
+
+  // 示例：获取列名
+  const columnName = getColumnName(1); // 列索引从 0 开始
+
+  // 示例：获取列索引
+  const columnIndex = getColumnIndex('userBase#name');
 }
 
 ```
@@ -263,22 +368,22 @@ handleDataInitialized(exposed) {
 
 ### Config 配置项
 
-| 参数                      | 说明                                                   | 类型      | 默认值                                                                     |
-| :---------------------- | :--------------------------------------------------- | :------ | :---------------------------------------------------------------------- |
-| defaultColumnWidth      | 默认列宽（像素）                                             | Number  | 80                                                                      |
-| defaultRowHeight        | 默认行高（像素）                                             | Number  | 20                                                                      |
-| sheetName               | 工作表名称                                                | String  | 'Sheet'                                                                 |
-| allowInsertRow          | 是否允许插入行                                              | Boolean | true                                                                    |
-| allowDeleteRow          | 是否允许删除行                                              | Boolean | true                                                                    |
-| autoRefreshOnPropChange | 属性变化时是否自动刷新                                          | Boolean | false                                                                   |
-| loadingMaskColor        | 加载遮罩中旋转动画的颜色                                         | String  | '#3498db'                                                               |
-| loadingMessage          | 加载遮罩中显示的文本                                           | String  | ' 数据加载中...'                                                             |
-| showHeader              | 是否显示表头                                                | Boolean | true                                                                    |
-| showFooter              | 是否显示表尾                                                | Boolean | true                                                                    |
-| styleOptions            | 容器样式设置                                               | Object  | { width: '100%', height: '500px' }                                      |
-| headerStyle             | 表头样式设置（包含 backgroundColor、fontWeight、borderColor）    | Object  | { backgroundColor: '#cfe2f3', fontWeight: 'bold', borderColor: '#ccc' } |
-| readonlyCellStyle       | 只读单元格样式设置（包含 backgroundColor、fontWeight、borderColor） | Object  | { backgroundColor: '#eee', fontWeight: 'bold', borderColor: '#ccc' }    |
-| messages                | 各类操作的提示信息配置对象                                        | Object  | 见下方详细说明                                                                 |
+| 参数                      | 说明                                                      | 类型      | 默认值                                                                     |
+| :---------------------- | :------------------------------------------------------ | :------ | :---------------------------------------------------------------------- |
+| sheetName               | 工作表名称                                                   | String  | 'Sheet'                                                                 |
+| allowInsertRow          | 是否允许插入行                                                 | Boolean | true                                                                    |
+| allowDeleteRow          | 是否允许删除行                                                 | Boolean | true                                                                    |
+| autoRefreshOnPropChange | 属性变化时是否自动刷新                                             | Boolean | false                                                                   |
+| loadingMaskColor        | 加载遮罩中旋转动画的颜色                                            | String  | '#3498db'                                                               |
+| loadingMessage          | 加载遮罩中显示的文本                                              | String  | ' 数据加载中...'                                                             |
+| showHeader              | 是否显示表头                                                  | Boolean | true                                                                    |
+| showFooter              | 是否显示表尾                                                  | Boolean | true                                                                    |
+| batchSize               | 每次加载的数据量，用于异步分批次加载优化                                    | Number  | 500                                                                     |
+| styleOptions            | 容器样式设置                                                  | Object  | { width: '100%', height: '500px' }                                      |
+| commonStyle             | 通用样式设置（包含 defaultRowHeight、defaultColumnWidth、fontSize） | Object  | { defaultRowHeight: 20, defaultColumnWidth: 80, fontSize: 12 }         |
+| headerStyle             | 表头样式设置（包含 backgroundColor、fontWeight、borderColor）       | Object  | { backgroundColor: '#cfe2f3', fontWeight: 'bold', borderColor: '#ccc' } |
+| readonlyCellStyle       | 只读单元格样式设置（包含 backgroundColor、fontWeight、borderColor）    | Object  | { backgroundColor: '#eee', fontWeight: 'bold', borderColor: '#ccc' }    |
+| messages                | 各类操作的提示信息配置对象                                           | Object  | 见下方详细说明                                                                 |
 
 #### messages 配置项详情
 
@@ -298,28 +403,29 @@ handleDataInitialized(exposed) {
 
 ### Events
 
-| 事件名              | 触发时机        | 回调参数                                                                                                              |
-| :--------------- | :---------- | :---------------------------------------------------------------------------------------------------------------- |
-| updateData       | 单元格数据变更     | `{ changedRow, changedRowIndex, changedColumn, changedColumnIndex, oldValue, newVal, currentTableData, exposed }` |
-| tableInitialized | 表格首次渲染完成    | `exposed`                                                                                                         |
-| tableRefreshed   | 数据或配置重新加载完成 | `exposed`                                                                                                         |
-| insertRow        | 插入行操作完成     | `{ insertRows, insertRowStartIndex, insertRowEndIndex, currentTableData, exposed }`                               |
-| deleteRow        | 删除行操作完成     | `{ deleteRows, deleteRowStartIndex, deleteRowEndIndex, currentTableData, exposed }`                               |
+| 事件名                | 触发时机     | 回调参数                                                                                                              |
+| :----------------- | :------- | :---------------------------------------------------------------------------------------------------------------- |
+| updateData         | 单元格数据变更  | `{ changedRow, changedRowIndex, changedColumn, changedColumnIndex, oldValue, newVal, currentTableData, exposed }` |
+| tableInitialized   | 表格首次渲染完成 | `exposed`                                                                                                         |
+| tableDataRefreshed | 数据重新加载完成 | `exposed`                                                                                                         |
+| insertRow          | 插入行操作完成  | `{ insertRows, insertRowStartIndex, insertRowEndIndex, currentTableData, exposed }`                               |
+| deleteRow          | 删除行操作完成  | `{ deleteRows, deleteRowStartIndex, deleteRowEndIndex, currentTableData, exposed }`                               |
+| cellClicked        | 单元格被点击   | `{ clickedRow, clickedRowIndex, clickedColumn, clickedColumnIndex, value }`                                       |
 
 ### 回调参数详情
 
 #### updateData 回调参数
 
-| 字段                 | 说明                                                                                                                       |
-| :----------------- | :----------------------------------------------------------------------------------------------------------------------- |
-| changedRow         | 变更后的行数据                                                                                                                  |
-| changedRowIndex    | 数据行索引（已自动减去表头行）                                                                                                          |
-| changedColumn      | 变更的列名                                                                                                                    |
-| changedColumnIndex | 列索引                                                                                                                      |
-| oldValue           | 旧值                                                                                                                       |
-| newVal             | 新值                                                                                                                       |
-| currentTableData   | 完整表格数据                                                                                                                   |
-| exposed            | 暴露对象 `{ attributes: { univerInstance, univerAPIInstance, defaultConfig }, methods: { getCurrentTableData, refreshTable, endEditing } }` |
+| 字段                 | 说明              |
+| :----------------- | :-------------- |
+| changedRow         | 变更后的行数据         |
+| changedRowIndex    | 数据行索引（已自动减去表头行） |
+| changedColumn      | 变更的列名           |
+| changedColumnIndex | 列索引             |
+| oldValue           | 旧值              |
+| newVal             | 新值              |
+| currentTableData   | 完整表格数据          |
+| exposed            | 暴露对象            |
 
 #### insertRow 回调参数
 
@@ -341,26 +447,44 @@ handleDataInitialized(exposed) {
 | currentTableData    | 更新后的完整表格数据 |
 | exposed             | 暴露对象       |
 
+#### cellClicked 回调参数
+
+| 字段                 | 说明              |
+| :----------------- | :-------------- |
+| clickedRow         | 被点击的行数据         |
+| clickedRowIndex    | 数据行索引            |
+| clickedColumn      | 被点击的列名          |
+| clickedColumnIndex | 列索引             |
+| value              | 单元格当前值          |
+
 ### exposed 对象说明
 
-| 字段                           | 说明                                       |
-| :--------------------------- | :--------------------------------------- |
-| attributes.univerInstance    | Univer 原始实例                              |
-| attributes.univerAPIInstance | Univer API 封装实例                          |
-| attributes.defaultConfig     | 组件默认配置                                   |
-| methods.getCurrentTableData  | 获取当前完整表格数据                               |
-| methods.refreshTable | 刷新表格数据与配置，参数 recreate 控制是否销毁并重建组件 |
-| methods.endEditing           | 结束所有单元格的编辑状态，返回 Promise                  |
+| 字段                               | 说明                                       |
+| :------------------------------- | :--------------------------------------- |
+| attributes.univerInstance        | Univer 原始实例                              |
+| attributes.univerAPIInstance     | Univer API 封装实例                          |
+| attributes.defaultConfig         | 组件默认配置                                   |
+| methods.getCurrentTableData      | 获取当前完整表格数据                               |
+| methods.refreshTableData         | 刷新表格数据                                   |
+| methods.recreateTable            | 销毁并重建表格组件                                |
+| methods.refreshTableCommonConfig | 刷新表格通用配置                                 |
+| methods.endEditing               | 结束所有单元格的编辑状态，返回 Promise                  |
+| methods.setCellFontColor         | 设置单元格字体颜色，参数：rowIndex, columnName, color |
+| methods.getColumnName            | 获取列名，参数：columnIndex                      |
+| methods.getColumnIndex           | 获取列索引，参数：columnName                      |
 
 ## 注意事项
 
 1.  **列名匹配**：数据字段名必须与 `columns` 中的 `prop` 完全一致
 2.  **嵌套表头**：子列的宽度设置仅在子列配置中生效
-3.  **性能优化**：避免频繁修改 `columns`、`data` 和 `config`，这会导致表格重新渲染
+3.  **性能优化**：
+    *   组件采用异步分批次加载优化大数据量场景
+    *   避免在`autoRefreshOnPropChange`为`true`时频繁修改 `columns`、`data` 和 `config`，这会导致表格重新渲染
+    *   合理设置`batchSize`以平衡性能和响应速度
 4.  **表头操作限制**：表头区域默认不可编辑、不可移动、不可复制
 5.  **单元格操作限制**：默认禁止合并和取消合并单元格操作
 6.  **自动填充限制**：不可从表头开始自动填充，也不可填充到表头区域
 7.  **只读单元格**：通过设置列的 `editor: { type: 'readonly' }` 可将整列设为只读
-8.  **样式继承**：表头样式和只读单元格样式支持 backgroundColor、fontWeight 和 borderColor 属性
-9.  **权限控制**：通过 `allowInsertRow` 和 `allowDeleteRow` 可控制行操作权限
-10. **自动刷新**：`autoRefreshOnPropChange` 设为 true 时，修改 props 会自动刷新表格
+8.  **下拉选择**：通过设置列的`editor: { type: 'select', options: [...] }`可添加下拉选择功能
+9.  **样式继承**：表头样式和只读单元格样式支持 backgroundColor、fontWeight 和 borderColor 属性
+10. **权限控制**：通过 `allowInsertRow` 和 `allowDeleteRow` 可控制行操作权限

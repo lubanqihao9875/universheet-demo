@@ -7,9 +7,10 @@
     :config="mergedConfig"
     @updateData="handleDataChange"
     @tableInitialized="handleTableInitialized"
-    @tableRefreshed="handleTableUpdated"
+    @tableDataRefreshed="handleTableDataUpdated"
     @insertRow="handleInsertRow"
     @deleteRow="handleDeleteRow"
+    @cellClicked="handleCellClicked"
   />
 </template>
 
@@ -57,13 +58,13 @@ export default {
           defaultConfig: this.defaultConfig
         },
         methods: {
-          refreshTable: this.refreshTable
+          refreshTableData: this.refreshTableData,
+          recreateTable: this.recreateTable,
+          refreshTableCommonConfig: this.refreshTableCommonConfig
         }
       },
       // 默认配置集中管理
       defaultConfig: {
-        defaultRowHeight: 20,
-        defaultColumnWidth: 80,
         sheetName: 'Sheet',
         allowInsertRow: true,
         allowDeleteRow: true,
@@ -72,18 +73,24 @@ export default {
         loadingMessage: '数据加载中...',
         showHeader: true,
         showFooter: true,
+        batchSize: 500,
         styleOptions: {
           width: '100%',
           height: '500px'
         },
+        commonStyle: {
+          defaultRowHeight: 20,
+          defaultColumnWidth: 80,
+          fontSize: 12
+        },
         headerStyle: {
           backgroundColor: '#cfe2f3',
-          fontWeight: 'bold',
+          fontWeight: 'normal',
           borderColor: '#ccc'
         },
         readonlyCellStyle: {
           backgroundColor: '#eee',
-          fontWeight: 'bold',
+          fontWeight: 'normal',
           borderColor: '#ccc'
         },
         messages: {
@@ -103,17 +110,22 @@ export default {
     }
   },
   methods: {
-    // 刷新表格数据或重建表格
-    refreshTable(recreate = false) {
-      if (recreate) {
-        // 销毁并重建核心组件
-        this.isComponentAlive = false;
-        this.$nextTick(() => {
-          this.isComponentAlive = true;
-        });
-      } else if (this.isTableInitialized && this.$refs.lubanno7UniverSheetCoreRef) {
-        // 仅刷新数据，不重建组件
-        this.$refs.lubanno7UniverSheetCoreRef.refreshTable();
+    // 刷新表格数据
+    refreshTableData() {
+      if (this.isTableInitialized && this.$refs.lubanno7UniverSheetCoreRef) {
+        this.$refs.lubanno7UniverSheetCoreRef.refreshTableData();
+      }
+    },
+    recreateTable() {
+      // 销毁并重建核心组件
+      this.isComponentAlive = false;
+      this.$nextTick(() => {
+        this.isComponentAlive = true;
+      });
+    },
+    refreshTableCommonConfig() {
+      if (this.isTableInitialized && this.$refs.lubanno7UniverSheetCoreRef) {
+        this.$refs.lubanno7UniverSheetCoreRef.setCommonSheetConfig();
       }
     },
     
@@ -141,16 +153,21 @@ export default {
         methods: {
           getCurrentTableData: coreRef.getCurrentTableData,
           endEditing: coreRef.endEditing,
-          refreshTable: this.refreshTable
+          setCellFontColor: coreRef.setCellFontColor,
+          getColumnName: coreRef.getColumnName,
+          getColumnIndex: coreRef.getColumnIndex,
+          refreshTableData: this.refreshTableData,
+          recreateTable: this.recreateTable,
+          refreshTableCommonConfig: this.refreshTableCommonConfig
         }
       };
       this.isTableInitialized = true;
       this.emitEvent('tableInitialized');
     },
     
-    // 处理表格更新完成事件
-    handleTableUpdated() {
-      this.emitEvent('tableRefreshed');
+    // 处理表格数据更新事件
+    handleTableDataUpdated() {
+      this.emitEvent('tableDataRefreshed');
     },
     
     // 处理插入行事件
@@ -161,13 +178,18 @@ export default {
     // 处理删除行事件
     handleDeleteRow(params) {
       this.emitEvent('deleteRow', params);
+    },
+    
+    // 处理单元格点击事件
+    handleCellClicked(params) {
+      this.emitEvent('cellClicked', params);
     }
   },
   watch: {
     // 监听列配置变化，需要重建表格
     columns: {
       handler: function() {
-        this.refreshTable(true);
+        this.recreateTable();
       },
       deep: true,
       immediate: false
