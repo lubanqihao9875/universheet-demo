@@ -1,5 +1,5 @@
 <template>
-  <div class="lubanno7-univer-sheet-wrapper">
+  <div class="lubanno7-universheet-wrapper" :style="config.styleOptions">
     <div ref="sheetContainer" :style="config.styleOptions"></div>
     <div v-if="pendingUpdates !== 0 || !isTableInitialized" class="custom-loading-mask">
       <div class="loading-content">
@@ -13,8 +13,11 @@
 <script>
 import { UniverSheetsCorePreset } from '@univerjs/preset-sheets-core'
 import UniverPresetSheetsCoreZhCN from '@univerjs/preset-sheets-core/locales/zh-CN'
+import { UniverSheetsDataValidationPreset } from '@univerjs/preset-sheets-data-validation'
+import UniverPresetSheetsDataValidationZhCN from '@univerjs/preset-sheets-data-validation/locales/zh-CN'
 import { createUniver, LocaleType, mergeLocales } from '@univerjs/presets'
 import '@univerjs/preset-sheets-core/lib/index.css'
+import '@univerjs/preset-sheets-data-validation/lib/index.css'
 
 // 提取DisposableManager为独立类
 class DisposableManager {
@@ -120,6 +123,7 @@ export default {
         locales: {
           [LocaleType.ZH_CN]: mergeLocales(
             UniverPresetSheetsCoreZhCN,
+            UniverPresetSheetsDataValidationZhCN, 
           ),
         },
         presets: [
@@ -131,6 +135,9 @@ export default {
               protectedRangeShadow: false,
             },
           }),
+          UniverSheetsDataValidationPreset({
+            showEditOnDropdown: false
+          }), 
         ],
       })
 
@@ -138,7 +145,16 @@ export default {
       this.univerAPIInstance = univerAPIInstance
 
       // 获取工作表实例
-      univerAPIInstance.createWorkbook({})
+      univerAPIInstance.createWorkbook({
+        sheets: {
+          [this.config.sheetName]: {
+            id: this.config.sheetName,
+            name: this.config.sheetName,
+            defaultRowHeight: this.config.commonStyle.defaultRowHeight,
+            defaultColumnWidth: this.config.commonStyle.defaultColumnWidth,
+          }
+        }
+      })
 
       // 注册事件监听
       this.registerEvents();
@@ -185,22 +201,30 @@ export default {
           this.handleBeforeClipboardChange.bind(this)
         )
       );
+
+      // 单元格被点击事件
+      this.disposableManager.add('cellClickedDisposable', 
+        this.univerAPIInstance.addEvent(
+          this.univerAPIInstance.Event.CellClicked,
+          this.handleCellClicked.bind(this)
+        )
+      )
     },
 
     // 处理生命周期变化
-    handleLifeCycleChanged({ stage }) {
+    async handleLifeCycleChanged({ stage }) {
       switch (stage) {
         case this.univerAPIInstance.Enum.LifecycleStages.Rendered:
           const workbook = this.univerAPIInstance.getActiveWorkbook()
           const worksheet = workbook.getActiveSheet()
           this.currentTableColumns = this.columns;
           this.currentTableData = this.data;
-          worksheet.setName(this.config.sheetName)
           this.pendingUpdates++
           try {
-            this.setColumns(worksheet)
-            this.setData(worksheet)
-            this.setPermission(workbook, worksheet)
+            this.setCommonSheetConfigBeforeSetData(worksheet)
+            await this.setColumns(worksheet)
+            await this.setData(worksheet)
+            await this.setCommonSheetConfigAfterSetData(workbook, worksheet)
             this.isTableInitialized = true
             this.$emit('tableInitialized')
           } catch (error) {
@@ -326,11 +350,39 @@ export default {
       });
     },
 
+    // 处理单元格点击事件
+    handleCellClicked(params) {
+      const { worksheet, workbook, row, column, value } = params
+      console.log(`单元格被点击，行：${row}，列：${column}`)
+      
+      // 过滤表头区域（只处理数据行）
+      if (row < this.headerRowCount) return;
+
+      // 计算数据行索引（减去表头行）
+      const dataRowIndex = row - this.headerRowCount;
+
+      // 获取当前数据行
+      if (!this.currentTableData || !this.currentTableData[dataRowIndex]) return;
+
+      // 获取被点击的行数据和列名
+      const clickedRow = { ...this.currentTableData[dataRowIndex] };
+      const clickedColumn = this.getColumnName(column);
+
+      // 触发cellClicked事件，传出与updateData相同格式的参数
+      this.$emit('cellClicked', {
+        clickedRow: clickedRow,
+        clickedRowIndex: dataRowIndex,
+        clickedColumn: clickedColumn,
+        clickedColumnIndex: column,
+        value: value
+      });
+    },
+
     // 处理命令执行前事件
     handleBeforeCommandExecute(event) {
       if (this.pendingUpdates) return;
       const { params, id } = event;
-      
+
       switch (id) {
         case 'sheet.command.insert-row':
           this.handleInsertRowCommand(params, event);
@@ -465,6 +517,106 @@ export default {
       }
     },
 
+    // 设置select类型单元格的数据验证规则
+    async setSelectCellDataValidation(worksheet) {
+      if (!this.univerAPIInstance) {
+        return;
+      }
+
+      const batchSize = this.config.batchSize;
+      const totalCells = this.data.length * this.flatColumns.length;
+      let processedCells = 0;
+
+      // 分批处理单元格
+      while (processedCells < totalCells) {
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            const endIndex = Math.min(processedCells + batchSize, totalCells);
+            
+            // 处理当前批次的单元格
+            for (let i = processedCells; i < endIndex; i++) {
+              try {
+                // 计算行索引和列索引
+                const rowIndex = Math.floor(i / this.flatColumns.length);
+                const colIndex = i % this.flatColumns.length;
+                const row = this.data[rowIndex];
+                const column = this.flatColumns[colIndex];
+                
+                // 创建参数对象
+                const editorParams = {
+                  row: row || {},
+                  rowIndex: rowIndex,
+                  column: column,
+                  columnIndex: colIndex
+                };
+                
+                // 检查是否有editor配置
+                let editorConfig = column.editor;
+                
+                // 如果editor是函数，需要调用它获取配置
+                if (typeof editorConfig === 'function') {
+                  try {
+                    // 调用函数获取配置
+                    const result = editorConfig(editorParams);
+                    
+                    // 如果函数返回了配置，则使用该配置
+                    if (result && result.type === 'select') {
+                      editorConfig = result;
+                    } else {
+                      // 否则跳过此单元格
+                      continue;
+                    }
+                  } catch (error) {
+                    console.error('处理editor函数时出错:', error);
+                    continue;
+                  }
+                }
+
+                // 检查是否为select类型的editor
+                if (editorConfig && editorConfig.type === 'select') {
+                  // 获取options配置
+                  const options = editorConfig.options || [];
+
+                  // 检查是否为多选
+                  const multiple = editorConfig.multiple || false;
+
+                  // 检查是否允许输入自定义值
+                  const allowInput = editorConfig.allowInput || false;
+
+                  // 获取当前单元格的范围
+                  const cellRange = worksheet.getRange(
+                    this.headerRowCount + rowIndex, // 实际行索引 = 表头行数 + 数据行索引
+                    colIndex,                       // 列索引
+                    1,                              // 行数
+                    1                               // 列数
+                  );
+
+                  // 使用univerAPI创建数据验证规则
+                  const rule = this.univerAPIInstance.newDataValidation()
+                    .requireValueInList(options, multiple) // 设置为下拉选择列表
+                    .setOptions({
+                      allowBlank: true,         // 允许空值
+                      showErrorMessage: true,   // 显示错误消息
+                      error: '请从下拉列表中选择一个值', // 错误消息
+                      errorStyle: allowInput ? this.univerAPIInstance.Enum.DataValidationErrorStyle.INFO : this.univerAPIInstance.Enum.DataValidationErrorStyle.STOP // 停止输入
+                    })
+                    .build();
+
+                  // 应用数据验证规则到当前单元格
+                  cellRange.setDataValidation(rule);
+                }
+              } catch (error) {
+                console.error(`设置单元格(${rowIndex},${colIndex})的数据验证规则失败:`, error);
+              }
+            }
+            
+            processedCells = endIndex;
+            resolve();
+          });
+        });
+      }
+    },
+
     // 处理剪贴板操作前事件
     handleBeforeClipboardChange(params) {
       const { startRow } = params.fromRange._range;
@@ -477,17 +629,15 @@ export default {
     },
 
     // 刷新表格数据
-    async refreshTable() {
+    async refreshTableData() {
       if (this.univerAPIInstance && this.isTableInitialized) {
         this.pendingUpdates++
         try {
           const workbook = this.univerAPIInstance.getActiveWorkbook();
           const worksheet = workbook.getActiveSheet();
           // 转换并设置数据
-          this.setData(worksheet)
-          // 转换并设置权限
-          this.setPermission(workbook, worksheet)
-          this.$emit('tableRefreshed')
+          await this.setData(worksheet)
+          this.$emit('tableDataRefreshed')
         } catch (error) {
           console.error('刷新表格数据时出错:', error)
         } finally {
@@ -533,7 +683,37 @@ export default {
       // 获取对应的列配置
       const column = this.flatColumns[colIndex];
       // 检查editor配置
-      return (column.editor && column.editor.type === 'readonly') ? true : false;
+      if (column.editor) {
+        // 如果editor是函数，则调用函数并判断返回结果
+        if (typeof column.editor === 'function') {
+          // 计算数据行索引（减去表头行数）
+          const dataRowIndex = rowIndex - this.headerRowCount;
+          // 获取当前行数据
+          const row = this.currentTableData && this.currentTableData[dataRowIndex] ? {...this.currentTableData[dataRowIndex]} : {};
+          // 获取列名
+          const columnName = column.prop || column.dataIndex;
+          
+          try {
+            // 调用editor函数，传入参数
+            const result = column.editor({
+              row,
+              rowIndex: dataRowIndex,
+              column: columnName,
+              columnIndex: colIndex
+            });
+
+            // 如果函数返回了结果，并且结果中type为readonly，则返回true
+            return result && result.type === 'readonly';
+          } catch (error) {
+            console.error('Error in editor function:', error);
+            return false;
+          }
+        }
+        // 如果editor是对象，且type为readonly，则返回true
+        return column.editor.type === 'readonly';
+      }
+      
+      return false;
     },
 
     // 检查指定范围内是否包含只读单元格
@@ -626,62 +806,106 @@ export default {
       return currentCol;
     },
 
-    // 设置表头
-    setColumns(worksheet) {
+    // 修改setColumns方法，将同步加载改为异步分批次加载
+    async setColumns(worksheet) {
       if (!this.columns.length) {
         worksheet.setColumnCount(1);
-        return;
+        return Promise.resolve();
       }
       
       // 处理嵌套表头，获取表头行数据和合并信息
       const { headerRows, mergeInfos } = this.generateHeaderRows(this.columns);
       worksheet.setColumnCount(headerRows[0].length);
       
-      // 设置表头数据
-      headerRows.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-          if (cell !== undefined) {
-            worksheet.getRange(rowIndex, colIndex, 1, 1).setValue(cell);
+      // 使用异步分批次加载表头数据
+      await this.loadHeaderInBatches(worksheet, headerRows, mergeInfos);
+    },
+
+    // 新增方法：异步分批次加载表头数据
+    async loadHeaderInBatches(worksheet, headerRows, mergeInfos) {
+      const batchSize = this.config.batchSize; // 每批处理的行数
+      const mergeBatchSize = this.config.batchSize;
+      const columnBatchSize = Math.max(Math.floor(0.005 * this.config.batchSize), 1);
+      
+      // 1. 先异步处理表头数据
+      for (let start = 0; start < headerRows.length; start += batchSize) {
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            const end = Math.min(start + batchSize, headerRows.length);
+            
+            for (let rowIndex = start; rowIndex < end; rowIndex++) {
+              const row = headerRows[rowIndex];
+              row.forEach((cell, colIndex) => {
+                if (cell !== undefined) {
+                  worksheet.getRange(rowIndex, colIndex, 1, 1).setValue(cell);
+                }
+              });
+            }
+            
+            resolve();
+          });
+        });
+      }
+      
+      // 2. 再异步处理合并信息
+      for (let start = 0; start < mergeInfos.length; start += mergeBatchSize) {
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            const end = Math.min(start + mergeBatchSize, mergeInfos.length);
+            
+            for (let i = start; i < end; i++) {
+              const info = mergeInfos[i];
+              worksheet.getRange(
+                info.startRow, 
+                info.startCol, 
+                info.endRow - info.startRow + 1, 
+                info.endCol - info.startCol + 1
+              ).merge();
+            }
+            
+            resolve();
+          });
+        });
+      }
+      
+      // 3. 异步应用表头样式
+      await new Promise(resolve => {
+        requestAnimationFrame(() => {
+          const headerRange = worksheet.getRange(0, 0, headerRows.length, headerRows[0].length);
+          
+          // 使用配置中的样式
+          if (this.config.headerStyle) {
+            headerRange.setBackgroundColor(this.config.headerStyle.backgroundColor);
+            headerRange.setFontWeight(this.config.headerStyle.fontWeight);
+            headerRange.setBorder(
+              this.univerAPIInstance.Enum.BorderType.ALL, 
+              this.univerAPIInstance.Enum.BorderStyleTypes.THIN, 
+              this.config.headerStyle.borderColor
+            );
           }
+          
+          resolve();
         });
       });
-
-      // 应用合并规则
-      mergeInfos.forEach(info => {
-        worksheet.getRange(
-          info.startRow, 
-          info.startCol, 
-          info.endRow - info.startRow + 1, 
-          info.endCol - info.startCol + 1
-        ).merge();
-      });
-
-      // 添加表头样式
-      const headerRange = worksheet.getRange(0, 0, headerRows.length, headerRows[0].length);
-
-      // 使用配置中的样式
-      if (this.config.headerStyle) {
-        headerRange.setBackgroundColor(this.config.headerStyle.backgroundColor);
-        headerRange.setFontWeight(this.config.headerStyle.fontWeight);
-        headerRange.setBorder(
-          this.univerAPIInstance.Enum.BorderType.ALL, 
-          this.univerAPIInstance.Enum.BorderStyleTypes.THIN, 
-          this.config.headerStyle.borderColor
-        );
+      
+      // 4. 异步应用列宽
+      for (let start = 0; start < this.flatColumns.length; start += columnBatchSize) {
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            const end = Math.min(start + columnBatchSize, this.flatColumns.length);
+            
+            for (let i = start; i < end; i++) {
+              const column = this.flatColumns[i];
+              // 优先使用配置的width，否则使用默认值
+              if(column.width) {
+                worksheet.setColumnWidth(i, column.width);
+              }
+            }
+            
+            resolve();
+          });
+        });
       }
-
-      // 设置数据区域的行高
-      const totalRowCount = this.headerRowCount + this.data.length;
-      for (let rowIndex = this.headerRowCount; rowIndex < totalRowCount; rowIndex++) {
-        worksheet.setRowHeight(rowIndex, this.config.defaultRowHeight);
-      }
-
-      // 设置列宽
-      this.flatColumns.forEach((column, index) => {
-        // 优先使用配置的width，否则使用默认值
-        const width = column.width || this.config.defaultColumnWidth;
-        worksheet.setColumnWidth(index, width);
-      });
     },
 
     // 获取表头行数
@@ -698,26 +922,74 @@ export default {
       return maxLevel
     },
 
-    // 设置表格数据
-    setData(worksheet) {
+    // 修改setData方法，将同步加载改为异步分批次加载
+    async setData(worksheet) {
       if (!this.data.length) {
         worksheet.setRowCount(1);
         return;
       }
       
       worksheet.setRowCount(this.headerRowCount + this.data.length);
-      this.data.forEach((row, rowIndex) => {
-        const flattenData = this.flattenRowData(row, this.columns)
-        flattenData.forEach((value, colIndex) => {
-          worksheet.getRange(rowIndex + this.headerRowCount, colIndex, 1, 1).setValue(value);
-        })
-      });
       
-      this.updateReadonlyCellStyles(worksheet);
+      // 使用异步分批次加载数据
+      await this.loadDataInBatches(worksheet);
     },
 
-    // 设置权限
-    async setPermission(workbook, worksheet) {
+    // 新增方法：异步分批次加载数据
+    async loadDataInBatches(worksheet) {
+      const rate = 1 / this.flatColumns.length
+      const batchSize = Math.max(Math.floor(rate * this.config.batchSize), 1); // 每批加载的行数，可以根据实际情况调整
+      const totalRows = this.data.length;
+      
+      // 分批处理数据
+      for (let start = 0; start < totalRows; start += batchSize) {
+        // 创建一个批次的Promise
+        await new Promise(resolve => {
+          // 使用requestAnimationFrame确保不阻塞UI线程
+          requestAnimationFrame(() => {
+            const end = Math.min(start + batchSize, totalRows);
+            
+            // 处理当前批次的数据
+            for (let rowIndex = start; rowIndex < end; rowIndex++) {
+              const flattenData = this.flattenRowData(this.data[rowIndex], this.columns);
+              flattenData.forEach((value, colIndex) => {
+                worksheet.getRange(rowIndex + this.headerRowCount, colIndex, 1, 1).setValue(value);
+              });
+            }
+            
+            resolve();
+          });
+        });
+      }
+      
+      // 所有数据加载完成后，更新只读单元格样式
+      await new Promise(resolve => requestAnimationFrame(() => {
+        this.updateReadonlyCellStyles(worksheet);
+        resolve();
+      }));
+
+      // 设置select类型单元格的数据验证规则
+      await this.setSelectCellDataValidation(worksheet, batchSize);
+    },
+
+    setCommonSheetConfig() {
+      const workbook = this.univerAPIInstance.getWorkbook();
+      const worksheet = workbook.getActiveSheet();
+      this.setCommonSheetConfigBeforeSetData(worksheet);
+      this.setCommonSheetConfigAfterSetData(workbook, worksheet);
+    },
+
+    setCommonSheetConfigBeforeSetData(worksheet) {
+      worksheet.setDefaultStyle({
+        fs: this.config.commonStyle.fontSize,
+        ht: this.univerAPIInstance.Enum.HorizontalAlign.LEFT,
+        vt: this.univerAPIInstance.Enum.VerticalAlign.MIDDLE,
+        tb: this.univerAPIInstance.Enum.WrapStrategy.WRAP,
+        pd: {t: 0, b: 0, l: 8, r: 0}
+      });
+    },
+    
+    async setCommonSheetConfigAfterSetData(workbook, worksheet) {
       const unitId = workbook.getId();
       const subUnitId = worksheet.getSheetId();
       const permission = workbook.getPermission();
@@ -947,6 +1219,45 @@ export default {
         const workbook = this.univerAPIInstance.getActiveWorkbook();
         return workbook.endEditingAsync(true);
       }
+    },
+
+    getColumnIndex(columnName) {
+      return this.flatColumns.findIndex(item => item.prop === columnName);
+    },
+
+    // 设置指定单元格的字体颜色
+    setCellFontColor(rowIndex, columnName, color) {
+      // 确保实例已初始化
+      if (!this.univerAPIInstance || !this.isTableInitialized) {
+        console.error('表格实例未初始化');
+        return false;
+      }
+
+      try {
+        // 获取当前工作表
+        const workbook = this.univerAPIInstance.getActiveWorkbook();
+        const worksheet = workbook.getActiveSheet();
+
+        // 计算实际行索引（数据行索引 + 表头行数）
+        const actualRowIndex = rowIndex + this.headerRowCount;
+
+        const columnIndex = this.getColumnIndex(columnName);
+
+        // 检查列索引是否有效
+        if (columnIndex === -1) {
+          console.error(`未找到列名为${columnName}的列`);
+          return false;
+        }
+
+        // 获取单元格并设置字体颜色
+        const cellRange = this.getCellRange(worksheet, actualRowIndex, columnIndex);
+        cellRange.setFontColor(color);
+
+        return true;
+      } catch (error) {
+        console.error('设置单元格字体颜色失败:', error);
+        return false;
+      }
     }
   },
   watch: {
@@ -957,7 +1268,7 @@ export default {
         if (this.univerAPIInstance && this.isTableInitialized) {
           this.currentTableData = newData;
         }
-        this.refreshTable();
+        this.refreshTableData();
       },
       deep: true,
       immediate: false
@@ -966,7 +1277,7 @@ export default {
     config: {
       handler() {
         if (!this.config.autoRefreshOnPropChange) return;
-        this.refreshTable();
+        this.setCommonSheetConfig();
       },
       deep: true,
       immediate: false

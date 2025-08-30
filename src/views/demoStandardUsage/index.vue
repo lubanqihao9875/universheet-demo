@@ -10,6 +10,7 @@
     <DemoStandardUsageTable
       ref="demoStandardUsageTableRef"
       :record-all-list="recordAllList"
+      @itemNameClick="handleItemNameClick"
       title="记录所有样本值"
     />
     <!-- 显示获取的recordList数据 -->
@@ -17,6 +18,20 @@
       <h3>变更数据：</h3>
       <pre>{{ JSON.stringify(recordChanges, null, 2) }}</pre>
     </div>
+
+    <!-- Element UI Drawer 组件 -->
+    <el-drawer
+      title="行数据详情"
+      :visible.sync="drawerVisible"
+      direction="rtl"
+      size="40%"
+      :before-close="handleDrawerClose">
+      <div class="drawer-content">
+        <h3>行数据信息：</h3>
+        <pre v-if="currentRow">{{ JSON.stringify(currentRow, null, 2) }}</pre>
+        <p v-else>暂无数据</p>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -32,7 +47,9 @@ export default {
   data() {
     return {
       recordAllList: [],
-      recordChanges: {}
+      recordChanges: {},
+      drawerVisible: false,
+      currentRow: null
     };
   },
   async mounted() {
@@ -80,8 +97,17 @@ export default {
       } catch (error) {
         console.error('刷新表格数据失败:', error);
       }
+    },
+    handleItemNameClick(row) {
+      console.log('点击行数据', row)
+      this.currentRow = row;
+      this.drawerVisible = true;
+    },
+
+    handleDrawerClose(done) {
+      done();
     }
-  }
+  },
 };
 </script>
 
@@ -146,5 +172,23 @@ pre {
 
 .refreshBtn:hover {
   background-color: #ebb563;
+}
+
+/* Drawer 内容样式 */
+.drawer-content h3 {
+  margin: 0;
+  padding: 16px;
+}
+
+.drawer-content pre {
+  margin: 0;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: auto;
+}
+
+.drawer-content p {
+  margin: 0;
 }
 </style>
